@@ -1,0 +1,402 @@
+# Shaders
+
+// TODO @sporacid remove
+struct SPORE_TYPE(shader, struct) light_v2
+{
+    SPORE_FIELD(shader = "vec3")
+    vec3f position;
+
+    SPORE_FIELD(shader = "vec3")
+    vec3f direction;
+
+    SPORE_FIELD(shader = "vec4")
+    vec4f attenuation;
+
+    SPORE_FIELD(shader = "vec4")
+    vec4f color;
+};
+
+struct SPORE_TYPE(shader, pipeline) pipeline_v2
+{
+    SPORE_FIELD(attribute, shader = "vec3")
+    vec3f position;
+
+    SPORE_FIELD(attribute, shader = "vec2")
+    vec2f uv;
+
+    SPORE_FIELD(attribute, shader = "vec4")
+    vec4f color;
+
+    SPORE_FIELD(uniform, shader = "mat4")
+    mat4f mvp;
+
+    SPORE_FIELD(uniform, binding = 0, set = 0, shader = "spore_light_v2")
+    light_v2 direct_light;
+};
+
+template <typename... values_t>
+struct shader_type
+{
+};
+
+struct SPORE_TYPE(shader, typemap) typemap_v2
+{
+    using bool_t SPORE_ATTRIBUTE(glsl = bool) =
+        std::tuple<bool>;
+
+    SPORE_FIELD(glsl = bool)
+    shader_type<bool> bools;
+
+    SPORE_FIELD(glsl = int)
+    shader_type<int, int32_t, int32> ints;
+
+    SPORE_FIELD(glsl = uint)
+    shader_type<unsigned int, uint32_t, uint32> unsigned_ints;
+
+    SPORE_FIELD(glsl = float)
+    shader_type<float, float_t, float32> floats;
+
+    SPORE_FIELD(glsl = double)
+    shader_type<double, double_t, float64> doubles;
+
+    SPORE_FIELD(glsl = ivec2)
+    shader_type<vec2i, decltype(ints)[2], std::array<decltype(ints), 2>> vec2is;
+
+    SPORE_FIELD(glsl = ivec3)
+    shader_type<vec3i, decltype(ints)[3], std::array<decltype(ints), 3>> vec3is;
+
+    SPORE_FIELD(glsl = ivec4)
+    shader_type<vec4i, decltype(ints)[4], std::array<decltype(ints), 4>> vec4is;
+
+    SPORE_FIELD(glsl = uvec2)
+    shader_type<vec2u, decltype(unsigned_ints)[2], std::array<decltype(unsigned_ints), 2>> vec2us;
+
+    SPORE_FIELD(glsl = uvec3)
+    shader_type<vec3u, decltype(unsigned_ints)[3], std::array<decltype(unsigned_ints), 3>> vec3us;
+
+    SPORE_FIELD(glsl = uvec4)
+    shader_type<vec4u, decltype(unsigned_ints)[4], std::array<decltype(unsigned_ints), 4>> vec4us;
+
+    SPORE_FIELD(glsl = vec2)
+    shader_type<vec2f, decltype(floats)[2], std::array<decltype(floats), 2>> vec2fs;
+
+    SPORE_FIELD(glsl = vec3)
+    shader_type<vec3f, decltype(floats)[3], std::array<decltype(floats), 3>> vec3fs;
+
+    SPORE_FIELD(glsl = vec4)
+    shader_type<vec4f, decltype(floats)[4], std::array<decltype(floats), 4>> vec4fs;
+
+    SPORE_FIELD(glsl = dvec2)
+    shader_type<vec2d, decltype(doubles)[2], std::array<decltype(doubles), 2>> vec2ds;
+
+    SPORE_FIELD(glsl = dvec3)
+    shader_type<vec3d, decltype(doubles)[3], std::array<decltype(doubles), 3>> vec3ds;
+
+    SPORE_FIELD(glsl = dvec4)
+    shader_type<vec4d, decltype(doubles)[4], std::array<decltype(doubles), 4>> vec4ds;
+
+    SPORE_FIELD(glsl = mat2)
+    shader_type<mat2f, decltype(floats)[2][2]> mat2fs;
+
+    SPORE_FIELD(glsl = mat3)
+    shader_type<mat3f, decltype(floats)[3][3]> mat3fs;
+
+    SPORE_FIELD(glsl = mat4)
+    shader_type<mat4f, decltype(floats)[4][4]> mat4fs;
+
+    SPORE_FIELD(glsl = dmat2)
+    shader_type<mat2d, decltype(doubles)[2][2]> mat2ds;
+
+    SPORE_FIELD(glsl = dmat3)
+    shader_type<mat3d, decltype(doubles)[3][3]> mat3ds;
+
+    SPORE_FIELD(glsl = dmat4)
+    shader_type<mat4d, decltype(doubles)[4][4]> mat4ds;
+};
+
+# Constexpr Meta Attribute Conversions
+
+namespace detail
+{
+    constexpr bool is_equal_ignore_case(const fixed_string<128>& string, const fixed_string<128>& other)
+    {
+        if (string.size() != other.size())
+        {
+            return false;
+        }
+
+        constexpr auto to_lower = [](const char c) {
+            return (c >= 'A' && c <= 'Z') ? (c + ('a' - 'A')) : c;
+        };
+
+        for (std::size_t index = 0; index < string.size(); ++index)
+        {
+            const char c1 = to_lower(string[index]);
+            const char c2 = to_lower(other[index]);
+
+            if (c1 != c2)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    constexpr bool parse_bool(const fixed_string<128>& string)
+    {
+        return is_equal_ignore_case(string, "true");
+    }
+
+    constexpr int64 parse_int(const fixed_string<128>& string)
+    {
+        int64 value = 0;
+
+        std::size_t index_begin = 0;
+
+        if (string[0] == '-')
+        {
+            index_begin = 1;
+        }
+
+        for (std::size_t index = index_begin; index < string.size(); ++index)
+        {
+            value = (value * 10) + (string[index] - '0');
+        }
+
+        if (string[0] == '-')
+        {
+            value *= -1;
+        }
+
+        return value;
+    }
+
+    constexpr float64 parse_float(const fixed_string<128>& string)
+    {
+        float64 value = 0.0;
+        float64 divisor = 1.0;
+
+        std::size_t index_begin = 0;
+
+        if (string[0] == '-')
+        {
+            index_begin = 1;
+        }
+
+        bool fractional_part = false;
+
+        for (std::size_t index = index_begin; index < string.size(); ++index)
+        {
+            if (string[index] == '.')
+            {
+                fractional_part = true;
+            }
+            else
+            {
+                if (fractional_part)
+                {
+                    value += (string[index] - '0') / divisor;
+                    divisor *= 10;
+                }
+                else
+                {
+                    value = (value * 10) + (string[index] - '0');
+                }
+            }
+        }
+
+        if (string[0] == '-')
+        {
+            value *= -1.0;
+        }
+
+        return value;
+    }
+
+    constexpr fixed_string<128> to_string(const bool value)
+    {
+        return value ? fixed_string<128> {"true"} : fixed_string<128> {"false"};
+    }
+
+    constexpr fixed_string<128> to_string(const int64 value)
+    {
+        fixed_string<128> string;
+
+        int64 value_copy = value;
+
+        std::size_t index = 0;
+
+        if (value_copy == 0)
+        {
+            string[0] = '0';
+        }
+        else if (value_copy < 0)
+        {
+            string[0] = '-';
+            index = 1;
+            value_copy *= -1;
+        }
+
+        while (value_copy > 0)
+        {
+            string[index] = '0' + value_copy % 10;
+            value_copy /= 10;
+            ++index;
+        }
+
+        return string;
+    }
+
+    constexpr fixed_string<128> to_string(const float64 value)
+    {
+        // TODO @sporacid implement this.
+        return fixed_string<128>();
+    }
+}
+
+struct meta_attribute_value
+{
+    using variant_t = std::variant<bool, int64, float64, fixed_string<128>>;
+
+    variant_t value = false;
+
+    constexpr bool is_truthy() const
+    {
+        const overloaded func {
+            [](const bool b) {
+                return b;
+            },
+            [](const int64 i) {
+                return static_cast<bool>(i);
+            },
+            [](const float64 f) {
+                constexpr float64 tolerance = std::numeric_limits<float64>::epsilon();
+                return not maths::within(f, -tolerance, tolerance);
+            },
+            [](const fixed_string<128>& s) {
+                return not s.empty() and not detail::is_equal_ignore_case(s, "false");
+            },
+        };
+
+        return std::visit(func, value);
+    }
+
+    constexpr bool as_bool() const
+    {
+        const overloaded func {
+            [](const bool b) {
+                return b;
+            },
+            [](const int64 i) {
+                return static_cast<bool>(i);
+            },
+            [](const float64 f) {
+                return not maths::equivalent(f, 0.0);
+            },
+            [](const fixed_string<128>& s) {
+                return detail::parse_bool(s);
+            },
+        };
+
+        return std::visit(func, value);
+    }
+
+    constexpr int64 as_int() const
+    {
+        const overloaded func {
+            [](const bool b) {
+                return static_cast<int64>(b);
+            },
+            [](const int64 i) {
+                return i;
+            },
+            [](const float64 f) {
+                return static_cast<int64>(f);
+            },
+            [](const fixed_string<128>& s) {
+                return detail::parse_int(s);
+            },
+        };
+
+        return std::visit(func, value);
+    }
+
+    constexpr float64 as_float() const
+    {
+        const overloaded func {
+            [](const bool b) {
+                return static_cast<float64>(b);
+            },
+            [](const int64 i) {
+                return static_cast<float64>(i);
+            },
+            [](const float64 f) {
+                return f;
+            },
+            [](const fixed_string<128>& s) {
+                return detail::parse_float(s);
+            },
+        };
+
+        return std::visit(func, value);
+    }
+
+    constexpr fixed_string<128> as_string() const
+    {
+        const overloaded func {
+            [](const bool b) {
+                return detail::to_string(b);
+            },
+            [](const int64 i) {
+                return detail::to_string(i);
+            },
+            [](const float64 f) {
+                return detail::to_string(f);
+            },
+            [](const fixed_string<128>& s) {
+                return s;
+            },
+        };
+
+        return std::visit(func, value);
+    }
+};
+
+namespace detail
+{
+    constexpr auto _test_attributes()
+    {
+        constexpr meta_attribute_value attr_bool {true};
+
+        static_assert(attr_bool.as_bool() == true);
+        static_assert(attr_bool.as_int() == 1LL);
+        static_assert(attr_bool.as_string().get() == "true");
+        static_assert(maths::equivalent(attr_bool.as_float(), 1.0));
+
+        constexpr meta_attribute_value attr_int {123LL};
+
+        static_assert(attr_int.as_bool() == true);
+        static_assert(attr_int.as_int() == 123LL);
+        static_assert(attr_int.as_string().get() == "123");
+        static_assert(maths::equivalent(attr_int.as_float(), 123.0));
+
+        constexpr meta_attribute_value attr_float {345.678};
+
+        static_assert(attr_float.as_bool() == true);
+        static_assert(attr_float.as_int() == 345LL);
+        static_assert(attr_float.as_string().get() == "345.678");
+        static_assert(maths::equivalent(attr_float.as_float(), 345.678));
+
+        constexpr meta_attribute_value attr_string {"some_value"};
+
+        static_assert(attr_string.as_bool() == false);
+        static_assert(attr_string.as_int() == 0LL);
+        static_assert(attr_string.as_string().get() == "some_value");
+        static_assert(maths::equivalent(attr_string.as_float(), 0.0));
+
+        return std::ignore;
+    }
+
+    constexpr auto _test_result = [] { return _test_attributes(); };
+}
