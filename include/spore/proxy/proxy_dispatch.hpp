@@ -61,33 +61,6 @@ namespace spore
         std::function<void(const std::size_t, const std::size_t, void*)> set_dispatch;
     };
 
-    namespace proxies
-    {
-        static inline proxy_dispatch_functional dispatch_instance;
-
-        template <any_proxy_dispatch dispatch_t>
-        void set_dispatch(dispatch_t dispatch)
-        {
-            if constexpr (std::is_same_v<dispatch_t, proxy_dispatch_functional>)
-            {
-                dispatch_instance = std::move(dispatch);
-            }
-            else
-            {
-                std::shared_ptr<dispatch_t> dispatch_ptr = std::make_shared<dispatch_t>(std::move(dispatch));
-                dispatch_instance = proxy_dispatch_functional {
-                    .get_dispatch = std::bind(&dispatch_t::get_dispatch, dispatch_ptr),
-                    .set_dispatch = std::bind(&dispatch_t::set_dispatch, dispatch_ptr),
-                };
-            }
-        }
-
-        any_proxy_dispatch auto& get_dispatch()
-        {
-            return dispatch_instance;
-        }
-    }
-
     struct proxy_dispatch_map
     {
         static void* get_dispatch(const std::size_t func_id, const std::size_t type_id) noexcept
@@ -101,23 +74,12 @@ namespace spore
         {
             const proxy_dispatch_key dispatch_key {func_id, type_id};
             _func_map.insert_or_assign(dispatch_key, ptr);
-            //            const auto it_func = _func_map.find(dispatch_key);
-            //
-            //            if (it_func != _func_map.end())
-            //            {
-            //                SPORE_PROXY_ASSERT(it_func->second == ptr);
-            //            }
-            //            else{
-            //                _func_map.emplace(dispatch_key, )
-            //            }
-            //            void*& ptr_ref = _func_map[dispatch_key];
-            //            // SPORE_PROXY_ASSERT(ptr_ref == nullptr or ptr_ref == ptr);
-            //            ptr_ref = ptr;
         }
 
       private:
         static inline std::unordered_map<proxy_dispatch_key, void*> _func_map;
     };
+
 #if 0
     struct proxy_dispatch_map
     {
@@ -153,42 +115,69 @@ namespace spore
 
     namespace proxies
     {
+        static inline proxy_dispatch_functional dispatch_instance;
+
+        template <any_proxy_dispatch dispatch_t>
+        void set_dispatch(dispatch_t dispatch)
+        {
+            if constexpr (std::is_same_v<dispatch_t, proxy_dispatch_functional>)
+            {
+                dispatch_instance = std::move(dispatch);
+            }
+            else
+            {
+                std::shared_ptr<dispatch_t> dispatch_ptr = std::make_shared<dispatch_t>(std::move(dispatch));
+                dispatch_instance = proxy_dispatch_functional {
+                    .get_dispatch = std::bind(&dispatch_t::get_dispatch, dispatch_ptr),
+                    .set_dispatch = std::bind(&dispatch_t::set_dispatch, dispatch_ptr),
+                };
+            }
+        }
+
+        any_proxy_dispatch auto& get_dispatch()
+        {
+            return dispatch_instance;
+        }
+    }
+
+    namespace proxies
+    {
         namespace detail
         {
             // one per translation unit
-            namespace
+            // namespace
+            // {
+            template <typename facade_t>
+            struct dispatch_tag
             {
-                template <typename facade_t>
-                struct dispatch_tag
-                {
-                };
+            };
 
-                template <typename facade_t>
-                struct value_tag
-                {
-                };
+            template <typename facade_t>
+            struct value_tag
+            {
+            };
 
-                template <typename facade_t>
-                struct base_tag
-                {
-                };
+            template <typename facade_t>
+            struct base_tag
+            {
+            };
 
-                template <typename tag_t>
-                struct once
+            template <typename tag_t>
+            struct once
+            {
+                template <typename func_t, typename... args_t>
+                once(func_t&& func, args_t&&... args)
                 {
-                    template <typename func_t, typename... args_t>
-                    once(func_t&& func, args_t&&... args)
-                    {
-                        std::call_once(
-                            _once_flag,
-                            std::forward<func_t>(func),
-                            std::forward<args_t>(args)...);
-                    }
+                    std::call_once(
+                        _once_flag,
+                        std::forward<func_t>(func),
+                        std::forward<args_t>(args)...);
+                }
 
-                  private:
-                    static inline std::once_flag _once_flag;
-                };
-            }
+              private:
+                static inline std::once_flag _once_flag;
+            };
+            // }
 
             template <typename func_t, typename self_t, typename signature_t>
             struct dispatch_mapping
@@ -215,11 +204,29 @@ namespace spore
                 }
             };
 
+            template <typename func_t, typename return_t>
+            struct dispatch_or_default
+            {
+                template <typename... args_t>
+                constexpr return_t operator()(args_t&&... args) const noexcept(std::is_invocable_r_v<return_t, func_t, args_t&&...>)
+                {
+                    if constexpr (std::is_invocable_r_v<return_t, func_t, args_t&&...>)
+                    {
+                        return func_t {}(std::forward<args_t>(args)...);
+                    }
+                    else if constexpr (not std::is_void_v<return_t>)
+                    {
+                        static_assert(std::is_default_constructible_v<return_t>);
+                        return return_t {};
+                    }
+                }
+            };
+
             template <typename value_t, typename func_t, typename self_t, typename return_t, typename... args_t>
             void* get_dispatch_ptr(const dispatch_mapping<func_t, self_t, return_t(args_t...)>) noexcept
             {
                 using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
-                const auto func = [](void_t* ptr, args_t... args) -> return_t {
+                static const auto func = [](void_t* ptr, args_t... args) -> return_t {
                     if constexpr (std::is_const_v<std::remove_reference_t<self_t>>)
                     {
                         return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t&&>(args)...);
@@ -241,7 +248,7 @@ namespace spore
             void init_dispatch_once() noexcept
             {
                 struct tag;
-                static const once<tag> once = [] {
+                const bool once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
                         proxies::detail::init_dispatch_once<base_facade_t, value_t>();
 #if 0
@@ -260,7 +267,9 @@ namespace spore
                         proxy_dispatch_map::set_dispatch(
                             proxies::detail::type_id<func_t>(), proxies::detail::type_id<value_t>(), ptr);
                     });
-                };
+
+                    return true;
+                }();
 
                 std::ignore = once;
             }
@@ -269,10 +278,10 @@ namespace spore
             void init_dispatch_once(const dispatch_mapping<func_t, self_t, return_t(args_t...)>) noexcept
             {
                 struct tag;
-                static const once<tag> once = [] {
-                    type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
+                const bool once = [] {
+                    proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
                         proxies::detail::init_dispatch_once<facade_t, value_t>();
-                        type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
+                        proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
                             proxies::detail::init_dispatch_once<base_facade_t, value_t>();
 #if 0
                             proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<base_facade_t>>([]<typename mapping_t> {
@@ -284,7 +293,9 @@ namespace spore
 #endif
                         });
                     });
-                };
+
+                    return true;
+                }();
 
                 std::ignore = once;
             }
@@ -298,7 +309,7 @@ namespace spore
                 static_assert(std::is_empty_v<func_t>);
                 static_assert(std::is_empty_v<facade_t>);
 
-                (void) proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<facade_t>, mapping_t>();
+                proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<facade_t>, mapping_t>();
                 proxies::detail::init_dispatch_once<facade_t>(mapping_t {});
 
                 using proxy_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
@@ -322,8 +333,15 @@ namespace spore
         template <typename return_t = void, typename func_t, typename self_t, typename... args_t>
         constexpr return_t dispatch_or_throw(const func_t&, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
-            using dispatch_t = proxies::detail::dispatch_or_throw<func_t, return_t>;
-            return proxies::detail::dispatch_impl<return_t>(dispatch_t {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
+            return proxies::detail::dispatch_impl<return_t>(
+                proxies::detail::dispatch_or_throw<func_t, return_t> {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
+        }
+
+        template <typename return_t = void, typename func_t, typename self_t, typename... args_t>
+        constexpr return_t dispatch_or_default(const func_t&, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
+        {
+            return proxies::detail::dispatch_impl<return_t>(
+                proxies::detail::dispatch_or_default<func_t, return_t> {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
         }
     }
 }

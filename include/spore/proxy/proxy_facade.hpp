@@ -45,6 +45,10 @@ namespace spore
             static_assert(std::is_default_constructible_v<facade_t> and (... and std::is_default_constructible_v<facades_t>));
 
             (proxies::detail::type_sets::emplace<proxies::detail::base_tag<facade_t>, facades_t>(), ...);
+
+//            (proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
+//                proxies::detail::init_dispatch_once<facades_t, value_t>();
+//            }), ...);
         }
     };
 }

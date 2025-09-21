@@ -20,13 +20,13 @@ namespace spore
         constexpr proxy_view(proxy_view&&) noexcept = default;
 
         template <any_proxy_storage storage_t>
-        constexpr proxy_view(const proxy<facade_t, storage_t>& proxy) noexcept;
+        constexpr proxy_view(SPORE_PROXY_LIFETIME_BOUND const proxy<facade_t, storage_t>& proxy ) noexcept;
 
         template <any_proxy_storage storage_t>
-        constexpr proxy_view(proxy<facade_t, storage_t>& proxy) noexcept;
+        constexpr proxy_view(SPORE_PROXY_LIFETIME_BOUND proxy<facade_t, storage_t>& proxy) noexcept;
 
         template <any_proxy_storage storage_t>
-        constexpr proxy_view(proxy<facade_t, storage_t>&& proxy) noexcept;
+        constexpr proxy_view(SPORE_PROXY_LIFETIME_BOUND proxy<facade_t, storage_t>&& proxy) noexcept;
 
         constexpr proxy_view& operator=(const proxy_view&) noexcept = default;
         constexpr proxy_view& operator=(proxy_view&&) noexcept = default;
@@ -40,7 +40,7 @@ namespace spore
             : proxy_base(proxies::detail::type_id<value_t>()),
               _storage(type, std::forward<args_t>(args)...)
         {
-            (void) proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
+            proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
             proxies::detail::init_dispatch_once<facade_t, value_t>();
 
             _ptr = _storage.ptr();

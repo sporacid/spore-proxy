@@ -26,6 +26,9 @@
 
 #ifndef SPORE_PROXY_ASSERT
 #    ifdef _DEBUG
+#        include <cstdio>
+#        include <cstdlib>
+
 #        define SPORE_PROXY_ASSERT(Cond)                                       \
             do                                                                 \
             {                                                                  \
@@ -38,4 +41,10 @@
 #    else
 #        define SPORE_PROXY_ASSERT(Cond)
 #    endif
+#endif
+
+#if defined(_MSC_VER) && !defined(__clang__) && _MSC_VER >= 1937
+#    define SPORE_PROXY_LIFETIME_BOUND [[msvc::lifetimebound]]
+#else
+#    define SPORE_PROXY_LIFETIME_BOUND
 #endif
