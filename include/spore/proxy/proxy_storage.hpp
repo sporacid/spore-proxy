@@ -23,7 +23,8 @@ namespace spore
 
     struct proxy_storage_dispatch
     {
-        std::size_t size;
+        void* (*allocate)();
+        void (*deallocate)(void*) noexcept;
         void (*destroy)(void*) noexcept;
         void (*move)(void*, void*);
         void (*copy)(void*, const void*);
@@ -33,7 +34,14 @@ namespace spore
         {
             // clang-format off
             static proxy_storage_dispatch dispatch {
-                .size = sizeof(value_t),
+                .allocate = []() SPORE_PROXY_THROW_SPEC {
+                    auto* value = std::allocator<value_t>().allocate(1);
+                    return static_cast<void*>(value);
+                },
+                .deallocate = [](void* ptr) noexcept {
+                    auto* value = static_cast<value_t*>(ptr);
+                    std::allocator<value_t>().deallocate(value, 1);
+                },
                 .destroy = [](void* ptr) noexcept {
                     if constexpr (std::is_destructible_v<value_t>)
                     {
@@ -146,7 +154,7 @@ namespace spore
         explicit proxy_storage_value(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
             _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
-            _ptr = std::allocator<std::byte>().allocate(sizeof(value_t));
+            _ptr = _dispatch->allocate();
             std::construct_at(reinterpret_cast<value_t*>(_ptr), std::forward<args_t>(args)...);
         }
 
@@ -162,7 +170,7 @@ namespace spore
 
             if (_dispatch != nullptr)
             {
-                _ptr = std::allocator<std::byte>().allocate(_dispatch->size);
+                _ptr = _dispatch->allocate();
                 _dispatch->copy(ptr(), other.ptr());
             }
         }
@@ -188,7 +196,7 @@ namespace spore
 
             if (_dispatch != nullptr)
             {
-                _ptr = std::allocator<std::byte>().allocate(_dispatch->size);
+                _ptr = _dispatch->allocate();
                 _dispatch->copy(ptr(), other.ptr());
             }
 
@@ -200,14 +208,12 @@ namespace spore
             return _ptr;
         }
 
-        void reset()
+        void reset() noexcept
         {
             if (_dispatch != nullptr and _ptr != nullptr)
             {
                 _dispatch->destroy(_ptr);
-
-                std::allocator<std::byte>().deallocate(_ptr, _dispatch->size);
-
+                _dispatch->deallocate(_ptr);
                 _dispatch = nullptr;
                 _ptr = nullptr;
             }
@@ -215,7 +221,7 @@ namespace spore
 
       private:
         const proxy_storage_dispatch* _dispatch = nullptr;
-        std::byte* _ptr = nullptr;
+        void* _ptr = nullptr;
     };
 
     template <std::size_t size_v, std::size_t align_v = alignof(void*)>
@@ -265,17 +271,17 @@ namespace spore
 
         constexpr ~proxy_storage_inline() noexcept
         {
-            _dispatch->destroy(ptr());
+            if (_dispatch != nullptr)
+            {
+                _dispatch->destroy(ptr());
+            }
         }
 
         constexpr proxy_storage_inline& operator=(const proxy_storage_inline& other) SPORE_PROXY_THROW_SPEC
         {
-            if (_dispatch != nullptr and _dispatch != other._dispatch)
-            {
-                _dispatch->destroy(ptr());
-                _dispatch = other._dispatch;
-                _storage = {};
-            }
+            reset();
+
+            _dispatch = other._dispatch;
 
             if (_dispatch != nullptr)
             {
@@ -287,12 +293,9 @@ namespace spore
 
         constexpr proxy_storage_inline& operator=(proxy_storage_inline&& other) SPORE_PROXY_THROW_SPEC
         {
-            if (_dispatch != nullptr and _dispatch != other._dispatch)
-            {
-                _dispatch->destroy(ptr());
-                _dispatch = other._dispatch;
-                _storage = {};
-            }
+            reset();
+
+            _dispatch = other._dispatch;
 
             if (_dispatch != nullptr)
             {
@@ -305,6 +308,15 @@ namespace spore
         [[nodiscard]] constexpr void* ptr() const noexcept
         {
             return const_cast<std::byte*>(std::addressof(_storage[0]));
+        }
+
+        void reset() noexcept
+        {
+            if (_dispatch != nullptr)
+            {
+                _dispatch->destroy(ptr());
+                _dispatch = nullptr;
+            }
         }
 
       private:

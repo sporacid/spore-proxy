@@ -1,17 +1,38 @@
 #include "catch2/catch_all.hpp"
 
 #include "spore/proxy/proxy.hpp"
-// #include "spore/proxy/tests/proxy_tests.hpp"
-
-#include <iostream>
-
-namespace spore::tests
-{
-}
 
 TEST_CASE("spore::proxy", "[spore::proxy]")
 {
     using namespace spore;
+
+//    struct facade : proxy_facade<facade>
+//    {
+//    };
+//
+//    struct impl
+//    {
+//        bool* destroyed = nullptr;
+//        bool* copied = nullptr;
+//
+//        impl() = default;
+//
+//        impl(const impl& other)
+//        {
+//            if (copied)
+//            {
+//                *copied = true;
+//            }
+//        }
+//
+//        ~impl()
+//        {
+//            if (destroyed)
+//            {
+//                *destroyed = true;
+//            }
+//        }
+//    };
 
     SECTION("basic facade works as expected")
     {
@@ -99,6 +120,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         struct impl
         {
+            bool* destroyed = nullptr;
             bool copied = false;
 
             impl() = default;
@@ -106,6 +128,14 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
             impl(const impl& other)
             {
                 copied = true;
+            }
+
+            ~impl()
+            {
+                if (destroyed)
+                {
+                    *destroyed = true;
+                }
             }
         };
 
@@ -126,5 +156,76 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         REQUIRE(p1.ptr() == nullptr);
         REQUIRE(p3.ptr() == ptr);
+
+        bool destroyed = false;
+        {
+            impl impl;
+            impl.destroyed = std::addressof(destroyed);
+            proxy _ = proxy<facade, proxy_storage_value>(std::in_place_type<decltype(impl)>, impl);
+        }
+
+        REQUIRE(destroyed);
+    }
+
+    SECTION("inline facade works as expected")
+    {
+        struct facade : proxy_facade<facade>
+        {
+            [[nodiscard]] bool copied() const
+            {
+                constexpr auto func = [](const auto& self) { return self.copied; };
+                return proxies::dispatch<bool>(func, *this);
+            }
+        };
+
+        struct impl
+        {
+            bool* destroyed = nullptr;
+            bool copied = false;
+
+            impl() = default;
+
+            impl(const impl& other)
+            {
+                copied = true;
+            }
+
+            ~impl()
+            {
+                if (destroyed)
+                {
+                    *destroyed = true;
+                }
+            }
+        };
+
+        static_assert(std::is_move_constructible_v<inline_proxy<facade, impl>>);
+        static_assert(std::is_move_assignable_v<inline_proxy<facade, impl>>);
+
+        static_assert(std::is_copy_constructible_v<inline_proxy<facade, impl>>);
+        static_assert(std::is_copy_assignable_v<inline_proxy<facade, impl>>);
+
+        proxy p1 = proxies::make_inline<facade, impl>();
+        proxy p2 = p1;
+
+        REQUIRE(p1.ptr() != p2.ptr());
+        REQUIRE(p2.ptr() != nullptr);
+        REQUIRE(p2.copied());
+
+        const void* ptr = p1.ptr();
+        proxy p3 = std::move(p1);
+
+        REQUIRE(p1.ptr() == nullptr);
+        REQUIRE(p3.ptr() == ptr);
+        REQUIRE_FALSE(p3.copied());
+
+        bool destroyed = false;
+        {
+            impl impl;
+            impl.destroyed = std::addressof(destroyed);
+            proxy _ = proxies::make_inline<facade>(impl);
+        }
+
+        REQUIRE(destroyed);
     }
 }

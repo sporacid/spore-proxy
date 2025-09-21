@@ -40,7 +40,7 @@ namespace spore
             : proxy_base(proxies::detail::type_id<value_t>()),
               _storage(type, std::forward<args_t>(args)...)
         {
-            proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
+            (void) proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
             proxies::detail::init_dispatch_once<facade_t, value_t>();
 
             _ptr = _storage.ptr();
