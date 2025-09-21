@@ -8,10 +8,10 @@
 
 namespace spore
 {
-    template <typename facade_t, any_proxy_storage storage_t>
+    template <any_proxy_facade facade_t, any_proxy_storage storage_t>
     struct proxy;
 
-    template <typename facade_t>
+    template <any_proxy_facade facade_t>
     struct proxy_view : facade_t, proxy_base
     {
         constexpr proxy_view() = default;
@@ -32,7 +32,7 @@ namespace spore
         constexpr proxy_view& operator=(proxy_view&&) noexcept = default;
     };
 
-    template <typename facade_t, any_proxy_storage storage_t>
+    template <any_proxy_facade facade_t, any_proxy_storage storage_t>
     struct proxy : facade_t, proxy_base
     {
         template <typename value_t, typename... args_t>
@@ -40,7 +40,7 @@ namespace spore
             : proxy_base(proxies::detail::type_id<value_t>()),
               _storage(type, std::forward<args_t>(args)...)
         {
-            proxies::detail::type_lists::append<proxies::detail::value_tag<facade_t>, value_t>();
+            proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
             proxies::detail::init_dispatch_once<facade_t, value_t>();
 
             _ptr = _storage.ptr();
@@ -98,7 +98,7 @@ namespace spore
         storage_t _storage;
     };
 
-    template <typename facade_t>
+    template <any_proxy_facade facade_t>
     template <any_proxy_storage storage_t>
     constexpr proxy_view<facade_t>::proxy_view(const proxy<facade_t, storage_t>& proxy) noexcept
         : proxy_base(proxy.type_id())
@@ -106,7 +106,7 @@ namespace spore
         _ptr = proxy.ptr();
     }
 
-    template <typename facade_t>
+    template <any_proxy_facade facade_t>
     template <any_proxy_storage storage_t>
     constexpr proxy_view<facade_t>::proxy_view(proxy<facade_t, storage_t>& proxy) noexcept
         : proxy_base(proxy.type_id())
@@ -114,7 +114,7 @@ namespace spore
         _ptr = proxy.ptr();
     }
 
-    template <typename facade_t>
+    template <any_proxy_facade facade_t>
     template <any_proxy_storage storage_t>
     constexpr proxy_view<facade_t>::proxy_view(proxy<facade_t, storage_t>&& proxy) noexcept
         : proxy_base(proxy.type_id())
@@ -122,63 +122,63 @@ namespace spore
         _ptr = proxy.ptr();
     }
 
-    template <typename facade_t, typename value_t>
+    template <any_proxy_facade facade_t, typename value_t>
     using inline_proxy = proxy<facade_t, proxy_storage_inline<sizeof(value_t), alignof(value_t)>>;
 
-    template <typename facade_t>
+    template <any_proxy_facade facade_t>
     using value_proxy = proxy<facade_t, proxy_storage_inline_or<proxy_storage_value, 16>>;
 
-    template <typename facade_t>
+    template <any_proxy_facade facade_t>
     using shared_proxy = proxy<facade_t, proxy_storage_shared>;
 
-    template <typename facade_t>
+    template <any_proxy_facade facade_t>
     using unique_proxy = proxy<facade_t, proxy_storage_unique>;
 
     namespace proxies
     {
-        template <typename facade_t, typename value_t, typename... args_t>
+        template <any_proxy_facade facade_t, typename value_t, typename... args_t>
         constexpr inline_proxy<facade_t, value_t> make_inline(args_t&&... args) noexcept(std::is_nothrow_constructible_v<inline_proxy<facade_t, value_t>, args_t&&...>)
         {
             return inline_proxy<facade_t, value_t> {std::in_place_type<value_t>, std::forward<args_t>(args)...};
         }
 
-        template <typename facade_t, typename value_t>
+        template <any_proxy_facade facade_t, typename value_t>
         constexpr inline_proxy<facade_t, std::decay_t<value_t>> make_inline(value_t&& value) noexcept(std::is_nothrow_constructible_v<inline_proxy<facade_t, std::decay_t<value_t>>, value_t&&>)
         {
             return inline_proxy<facade_t, std::decay_t<value_t>> {std::in_place_type<std::decay_t<value_t>>, std::forward<value_t>(value)};
         }
 
-        template <typename facade_t, typename value_t, typename... args_t>
+        template <any_proxy_facade facade_t, typename value_t, typename... args_t>
         constexpr value_proxy<facade_t> make_value(args_t&&... args) noexcept(std::is_nothrow_constructible_v<value_proxy<facade_t>, args_t&&...>)
         {
             return value_proxy<facade_t> {std::in_place_type<value_t>, std::forward<args_t>(args)...};
         }
 
-        template <typename facade_t, typename value_t>
+        template <any_proxy_facade facade_t, typename value_t>
         constexpr value_proxy<facade_t> make_value(value_t&& value) noexcept(std::is_nothrow_constructible_v<value_proxy<facade_t>, value_t&&>)
         {
             return value_proxy<facade_t> {std::in_place_type<std::decay_t<value_t>>, std::forward<value_t>(value)};
         }
 
-        template <typename facade_t, typename value_t, typename... args_t>
+        template <any_proxy_facade facade_t, typename value_t, typename... args_t>
         constexpr shared_proxy<facade_t> make_shared(args_t&&... args) noexcept(std::is_nothrow_constructible_v<shared_proxy<facade_t>, args_t&&...>)
         {
             return shared_proxy<facade_t> {std::in_place_type<value_t>, std::forward<args_t>(args)...};
         }
 
-        template <typename facade_t, typename value_t>
+        template <any_proxy_facade facade_t, typename value_t>
         constexpr shared_proxy<facade_t> make_shared(value_t&& value) noexcept(std::is_nothrow_constructible_v<shared_proxy<facade_t>, value_t&&>)
         {
             return shared_proxy<facade_t> {std::in_place_type<std::decay_t<value_t>>, std::forward<value_t>(value)};
         }
 
-        template <typename facade_t, typename value_t, typename... args_t>
+        template <any_proxy_facade facade_t, typename value_t, typename... args_t>
         constexpr unique_proxy<facade_t> make_unique(args_t&&... args) noexcept(std::is_nothrow_constructible_v<unique_proxy<facade_t>, args_t&&...>)
         {
             return unique_proxy<facade_t> {std::in_place_type<value_t>, std::forward<args_t>(args)...};
         }
 
-        template <typename facade_t, typename value_t>
+        template <any_proxy_facade facade_t, typename value_t>
         constexpr unique_proxy<facade_t> make_unique(value_t&& value) noexcept(std::is_nothrow_constructible_v<unique_proxy<facade_t>, value_t&&>)
         {
             return unique_proxy<facade_t> {std::in_place_type<std::decay_t<value_t>>, std::forward<value_t>(value)};

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "spore/proxy/detail/proxy_type_id.hpp"
-#include "spore/proxy/detail/proxy_type_list.hpp"
+#include "spore/proxy/detail/proxy_type_set.hpp"
 #include "spore/proxy/proxy_base.hpp"
 #include "spore/proxy/proxy_macros.hpp"
 
@@ -115,17 +115,23 @@ namespace spore
         namespace detail
         {
             // one per translation unit
-            // namespace
-            // {
+            namespace
+            {
                 template <typename facade_t>
-                struct dispatch_tag {};
+                struct dispatch_tag
+                {
+                };
 
                 template <typename facade_t>
-                struct value_tag {};
+                struct value_tag
+                {
+                };
 
                 template <typename facade_t>
-                struct base_tag {};
-            // }
+                struct base_tag
+                {
+                };
+            }
 
             template <typename func_t, typename self_t, typename signature_t>
             struct dispatch_mapping
@@ -184,11 +190,19 @@ namespace spore
             void init_dispatch_once() noexcept
             {
                 static const bool once = [] {
-                    proxies::detail::type_lists::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_t> {
-                        proxies::detail::init_dispatch_once<base_t, value_t>();
+                    proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
+                        proxies::detail::init_dispatch_once<base_facade_t, value_t>();
+#if 1
+                        proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<base_facade_t>>([]<typename mapping_t> {
+                            using func_t = typename mapping_t::func_type;
+                            void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
+                            proxy_dispatch_map::set_dispatch(
+                                proxies::detail::type_id<func_t>(), proxies::detail::type_id<value_t>(), ptr);
+                        });
+#endif
                     });
 
-                    proxies::detail::type_lists::for_each<proxies::detail::dispatch_tag<facade_t>>([]<typename mapping_t> {
+                    proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<facade_t>>([]<typename mapping_t> {
                         using func_t = typename mapping_t::func_type;
                         void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
                         proxy_dispatch_map::set_dispatch(
@@ -205,10 +219,18 @@ namespace spore
             void init_dispatch_once(const dispatch_mapping<func_t, self_t, return_t(args_t...)>) noexcept
             {
                 static const bool once = [] {
-                    type_lists::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
+                    type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
                         proxies::detail::init_dispatch_once<facade_t, value_t>();
-                        type_lists::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_t> {
-                            proxies::detail::init_dispatch_once<base_t, value_t>();
+                        type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
+                            proxies::detail::init_dispatch_once<base_facade_t, value_t>();
+#if 1
+                            proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<base_facade_t>>([]<typename mapping_t> {
+                                using func2_t = typename mapping_t::func_type;
+                                void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
+                                proxy_dispatch_map::set_dispatch(
+                                    proxies::detail::type_id<func2_t>(), proxies::detail::type_id<value_t>(), ptr);
+                            });
+#endif
                         });
                     });
 
@@ -227,7 +249,7 @@ namespace spore
                 static_assert(std::is_empty_v<func_t>);
                 static_assert(std::is_empty_v<facade_t>);
 
-                proxies::detail::type_lists::append<proxies::detail::dispatch_tag<facade_t>, mapping_t>();
+                proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<facade_t>, mapping_t>();
                 proxies::detail::init_dispatch_once<facade_t>(mapping_t {});
 
                 const auto& proxy = reinterpret_cast<const proxy_base&>(self);
@@ -251,6 +273,12 @@ namespace spore
         {
             using dispatch_t = proxies::detail::weak_dispatch<func_t, return_t>;
             return proxies::detail::dispatch_impl<return_t>(dispatch_t {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
+        }
+
+        template <typename facade_t, typename other_facade_t>
+        consteval void extends()
+        {
+            proxies::detail::type_sets::emplace<proxies::detail::base_tag<facade_t>, other_facade_t>();
         }
     }
 }

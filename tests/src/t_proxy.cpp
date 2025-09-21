@@ -15,7 +15,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("basic facade works as expected")
     {
-        struct facade
+        struct facade : proxy_facade<facade>
         {
             void act()
             {
@@ -45,7 +45,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     SECTION("shared facade works as expected")
     {
         // clang-format off
-        struct facade {};
+        struct facade : proxy_facade<facade> {};
         struct impl {};
         // clang-format on
 
@@ -68,7 +68,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     SECTION("unique facade works as expected")
     {
         // clang-format off
-        struct facade {};
+        struct facade : proxy_facade<facade> {};
         struct impl {};
         // clang-format on
 
@@ -88,7 +88,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("value facade works as expected")
     {
-        struct facade
+        struct facade : proxy_facade<facade>
         {
             [[nodiscard]] bool copied() const
             {
