@@ -167,7 +167,8 @@ namespace spore
             template <typename value_t, typename func_t, typename self_t, typename return_t, typename... args_t>
             void* get_dispatch_ptr(const dispatch_mapping<func_t, self_t, return_t(args_t...)>) noexcept
             {
-                const auto func = [](void* ptr, args_t... args) -> return_t {
+                using void_t = std::conditional_t<std::is_const_v<self_t>, const void, void>;
+                const auto func = [](void_t* ptr, args_t... args) -> return_t {
                     value_t& value = *static_cast<value_t*>(ptr);
                     if constexpr (std::is_const_v<self_t>)
                     {
@@ -252,12 +253,14 @@ namespace spore
                 proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<facade_t>, mapping_t>();
                 proxies::detail::init_dispatch_once<facade_t>(mapping_t {});
 
-                const auto& proxy = reinterpret_cast<const proxy_base&>(self);
+                using proxy_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
+                proxy_t& proxy = reinterpret_cast<proxy_t&>(self);
                 void* ptr = proxy_dispatch_map::get_dispatch(proxies::detail::type_id<func_t>(), proxy.type_id());
 
                 SPORE_PROXY_ASSERT(ptr != nullptr);
 
-                const auto func = reinterpret_cast<return_t (*)(void*, args_t...)>(ptr);
+                using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
+                const auto func = reinterpret_cast<return_t (*)(void_t*, args_t...)>(ptr);
                 return func(proxy.ptr(), std::forward<args_t>(args)...);
             }
         }
@@ -273,12 +276,6 @@ namespace spore
         {
             using dispatch_t = proxies::detail::weak_dispatch<func_t, return_t>;
             return proxies::detail::dispatch_impl<return_t>(dispatch_t {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
-        }
-
-        template <typename facade_t, typename other_facade_t>
-        consteval void extends()
-        {
-            proxies::detail::type_sets::emplace<proxies::detail::base_tag<facade_t>, other_facade_t>();
         }
     }
 }
