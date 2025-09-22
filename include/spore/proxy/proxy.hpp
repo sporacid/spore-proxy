@@ -12,7 +12,7 @@ namespace spore
     struct proxy;
 
     template <typename facade_t>
-    struct proxy_view : facade_t, proxy_base
+    struct SPORE_PROXY_ENFORCE_EBCO proxy_view final : facade_t, proxy_base
     {
         constexpr proxy_view() = default;
 
@@ -20,8 +20,8 @@ namespace spore
         constexpr proxy_view(value_t&& value) noexcept
             : proxy_base(proxies::detail::type_id<std::decay_t<value_t>>())
         {
-            proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, std::decay_t<value_t>>();
-            proxies::detail::init_dispatch_once<facade_t, std::decay_t<value_t>>();
+            proxies::detail::add_facade<facade_t>();
+            proxies::detail::add_facade_value_once<facade_t, value_t>();
 
             if constexpr (std::is_const_v<std::remove_reference_t<value_t>>)
             {
@@ -50,15 +50,15 @@ namespace spore
     };
 
     template <typename facade_t, any_proxy_storage storage_t>
-    struct proxy : facade_t, proxy_base
+    struct SPORE_PROXY_ENFORCE_EBCO proxy final : facade_t, proxy_base
     {
         template <typename value_t, typename... args_t>
         constexpr explicit proxy(std::in_place_type_t<value_t> type, args_t&&... args) noexcept(std::is_nothrow_constructible_v<storage_t, std::in_place_type_t<value_t>, args_t&&...>)
             : proxy_base(proxies::detail::type_id<value_t>()),
               _storage(type, std::forward<args_t>(args)...)
         {
-            proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
-            proxies::detail::init_dispatch_once<facade_t, value_t>();
+            proxies::detail::add_facade<facade_t>();
+            proxies::detail::add_facade_value_once<facade_t, value_t>();
 
             _ptr = _storage.ptr();
         }
@@ -153,16 +153,18 @@ namespace spore
 
     namespace proxies
     {
+#if 0
         namespace detail
         {
             template <typename facade_t>
-            std::size_t get_proxy_offset()
+            std::ptrdiff_t get_proxy_offset()
             {
-                constexpr std::size_t dummy_value = 0x100000;
-                using proxy_t = proxy<facade_t, proxy_storage_invalid>;
+                constexpr std::intptr_t dummy_value = 0x100000;
+                using proxy_t = proxy_view<facade_t>;
                 const proxy_t* proxy = std::bit_cast<const proxy_t*>(dummy_value);
                 const facade_t* facade = static_cast<const facade_t*>(proxy);
-                const std::size_t offset = std::bit_cast<std::size_t>(facade) - dummy_value;
+                const proxy_base* base = static_cast<const proxy_base*>(proxy);
+                const std::ptrdiff_t offset = std::bit_cast<std::ptrdiff_t>(base) - std::bit_cast<std::ptrdiff_t>(facade);
                 return offset;
             }
 
@@ -170,7 +172,7 @@ namespace spore
             void* cast_facade_to_proxy(const void* ptr)
             {
                 static const std::size_t offset = get_proxy_offset<facade_t>();
-                return reinterpret_cast<std::byte*>(const_cast<void*>(ptr)) - offset;
+                return reinterpret_cast<std::byte*>(const_cast<void*>(ptr)) + offset;
             }
 
             template <typename facade_t>
@@ -194,7 +196,7 @@ namespace spore
                 return *reinterpret_cast<const proxy_base*>(ptr);
             }
         }
-
+#endif
         template <typename facade_t, typename value_t, typename... args_t>
         constexpr inline_proxy<facade_t, value_t> make_inline(args_t&&... args) noexcept(std::is_nothrow_constructible_v<inline_proxy<facade_t, value_t>, args_t&&...>)
         {

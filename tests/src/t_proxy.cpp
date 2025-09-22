@@ -2,6 +2,8 @@
 
 #include "spore/proxy/proxy.hpp"
 
+#include <typeindex>
+
 namespace spore::tests
 {
     // clang-format off
@@ -11,6 +13,27 @@ namespace spore::tests
         { value.act() };
     };
     // clang-format on
+
+    struct facade_template
+    {
+        template <typename tag_t>
+        void act()
+        {
+            constexpr auto func = [](auto& self) { self.template act<tag_t>(); };
+            proxies::dispatch(func, *this);
+        }
+    };
+
+    struct impl_template
+    {
+        std::set<std::type_index>& type_ids;
+
+        template <typename tag_t>
+        void act()
+        {
+            type_ids.emplace(typeid(tag_t));
+        }
+    };
 }
 
 TEST_CASE("spore::proxy", "[spore::proxy]")
@@ -375,12 +398,8 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
             }
         };
 
-        struct facade : facade_base1
+        struct facade : proxy_facade<facade, facade_base1, facade_base2>
         {
-            constexpr facade()
-            {
-                proxies::extends<facade, facade_base1>();
-            }
         };
 
         struct impl
@@ -411,9 +430,27 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         flag1 = false;
 
-//        p.func2();
-//
-//        REQUIRE(flag2);
-//        REQUIRE_FALSE(flag1);
+        p.func2();
+
+        REQUIRE(flag2);
+        REQUIRE_FALSE(flag1);
+    }
+
+    SECTION("facade template")
+    {
+        std::set<std::type_index> type_ids;
+
+        proxy p = proxies::make_value<tests::facade_template, tests::impl_template>(type_ids);
+
+        // clang-format off
+        struct tag1 {};
+        struct tag2 {};
+        // clang-format on
+
+        p.act<tag1>();
+        p.act<tag2>();
+
+        REQUIRE(type_ids.contains(typeid(tag1)));
+        REQUIRE(type_ids.contains(typeid(tag2)));
     }
 }

@@ -15,8 +15,10 @@
         } while (false)
 #else
 #    ifndef SPORE_PROXY_THROW
+#        include <format>
 #        include <stdexcept>
-#        define SPORE_PROXY_THROW(Message) throw std::runtime_error((Message))
+
+#        define SPORE_PROXY_THROW(Message) throw std::runtime_error(std::format("[" SPORE_PROXY_NAME "] {}", (Message)))
 #    endif
 
 #    ifndef SPORE_PROXY_THROW_SPEC
@@ -41,6 +43,12 @@
 #    else
 #        define SPORE_PROXY_ASSERT(Cond)
 #    endif
+#endif
+
+#if defined(_MSC_VER)
+#    define SPORE_PROXY_ENFORCE_EBCO __declspec(empty_bases)
+#else
+#    define SPORE_PROXY_ENFORCE_EBCO
 #endif
 
 #if defined(_MSC_VER) && !defined(__clang__) && _MSC_VER >= 1937
