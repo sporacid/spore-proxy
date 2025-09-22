@@ -9,81 +9,24 @@
 
 #include <array>
 #include <cstddef>
-#include <functional>
 #include <mutex>
-#include <thread>
 #include <type_traits>
 #include <unordered_map>
 
-#ifndef SPORE_PROXY_DISPATCH_HEIGHT
-#    define SPORE_PROXY_DISPATCH_HEIGHT static_cast<std::size_t>(32)
-#endif
-
-#ifndef SPORE_PROXY_DISPATCH_WIDTH
-#    define SPORE_PROXY_DISPATCH_WIDTH static_cast<std::size_t>(1024)
+#ifndef SPORE_PROXY_DISPATCH_DEFAULT
+#    define SPORE_PROXY_DISPATCH_DEFAULT proxy_dispatch_static<0xffff>
 #endif
 
 namespace spore
 {
     // clang-format off
-    template <typename dispatch_t>
-    concept any_proxy_dispatch = requires(dispatch_t& dispatch)
-    {
-        { dispatch.get_dispatch(static_cast<std::size_t>(0), static_cast<std::size_t>(0)) } -> std::convertible_to<void*>;
-        { dispatch.set_dispatch(static_cast<std::size_t>(0), static_cast<std::size_t>(0), static_cast<void*>(nullptr)) };
-    };
+    // template <typename dispatch_t>
+    // concept any_proxy_dispatch = requires
+    // {
+    //     { dispatch_t::get_ptr(static_cast<std::size_t>(0), static_cast<std::size_t>(0)) } -> std::convertible_to<void*>;
+    //     { dispatch_t::set_ptr(static_cast<std::size_t>(0), static_cast<std::size_t>(0), static_cast<void*>(nullptr)) };
+    // };
     // clang-format on
-
-    namespace proxies::detail
-    {
-        constexpr std::uint16_t make_checksum(const std::size_t mapping_id, const std::size_t type_id) noexcept
-        {
-            return static_cast<std::uint16_t>((mapping_id ^ type_id) & std::numeric_limits<std::uint16_t>::max());
-        }
-    }
-
-    struct proxy_dispatch_functional
-    {
-        std::function<void*(const std::size_t, const std::size_t)> get_dispatch;
-        std::function<void(const std::size_t, const std::size_t, void*)> set_dispatch;
-    };
-
-    //    struct proxy_dispatch_data
-    //    {
-    //        static constexpr std::intptr_t checksum_mask = 0xffff000000000000ULL;
-    //        static constexpr std::intptr_t ptr_mask = 0x0000ffffffffffffULL;
-    //
-    //        proxy_dispatch_data(void* ptr, const std::uint16_t checksum)
-    //        {
-    //            _checksum = static_cast<std::intptr_t>(checksum) & checksum_mask;
-    //            _ptr = std::bit_cast<std::intptr_t>(ptr) & ptr_mask;
-    //        }
-    //
-    //        void* ptr() const noexcept
-    //        {
-    //            std::intptr_t ptr = _ptr;
-    //
-    // #if defined(__x86_64__) || defined(_M_X64)
-    //            constexpr std::intptr_t sign_bit = 1ULL << 47ULL;
-    //            constexpr std::intptr_t sign_extension_bits = 0xffff000000000000;
-    //
-    //            if (ptr & sign_bit)
-    //            {
-    //                ptr |= sign_extension_bits;
-    //            }
-    // #endif
-    //            return std::bit_cast<void*>(ptr);
-    //        }
-    //
-    //        std::uint16_t checksum() const noexcept
-    //        {
-    //            return _checksum & checksum_mask;
-    //        }
-    //
-    //      private:
-    //        std::intptr_t _checksum : 16;
-    //        std::intptr_t _ptr : 48;
-    //    };
 
     template <template <typename...> typename unordered_map_t = std::unordered_map, typename mutex_t = proxies::detail::spin_lock>
     struct proxy_dispatch_dynamic
@@ -132,7 +75,7 @@ namespace spore
         static void* get_ptr(const std::size_t mapping_id, const std::size_t type_id) noexcept
         {
             const std::size_t dispatch_id = proxies::detail::hash_combine(mapping_id, type_id);
-            const std::uint16_t checksum = proxies::detail::make_checksum(mapping_id, type_id);
+            const std::uint16_t checksum = make_checksum(mapping_id, type_id);
 
             std::size_t dispatch_index = dispatch_id % size_v;
             std::size_t seed_index = 0;
@@ -157,7 +100,7 @@ namespace spore
         static void set_ptr(const std::size_t mapping_id, const std::size_t type_id, void* ptr) noexcept
         {
             const std::size_t dispatch_id = proxies::detail::hash_combine(mapping_id, type_id);
-            const std::uint16_t checksum = proxies::detail::make_checksum(mapping_id, type_id);
+            const std::uint16_t checksum = make_checksum(mapping_id, type_id);
 
             std::size_t dispatch_index = dispatch_id % size_v;
             std::size_t seed_index = 0;
@@ -249,11 +192,17 @@ namespace spore
             0x1b2d691230396398ULL,
             0xc79bcfade4a11e6dULL,
         };
+
+        static constexpr std::uint16_t make_checksum(const std::size_t mapping_id, const std::size_t type_id) noexcept
+        {
+            return static_cast<std::uint16_t>((mapping_id ^ type_id) & std::numeric_limits<std::uint16_t>::max());
+        }
     };
 
+#if 1
     struct proxy_dispatch_map
     {
-        static void* get_dispatch(const std::size_t func_id, const std::size_t type_id) noexcept
+        static void* get_ptr(const std::size_t func_id, const std::size_t type_id) noexcept
         {
             std::lock_guard lock {_mutex};
             const dispatch_key dispatch_key {func_id, type_id};
@@ -261,7 +210,7 @@ namespace spore
             return it_func != _func_map.end() ? it_func->second : nullptr;
         }
 
-        static void set_dispatch(const std::size_t func_id, const std::size_t type_id, void* ptr) noexcept
+        static void set_ptr(const std::size_t func_id, const std::size_t type_id, void* ptr) noexcept
         {
             std::lock_guard lock {_mutex};
             const dispatch_key dispatch_key {func_id, type_id};
@@ -271,8 +220,8 @@ namespace spore
       private:
         struct dispatch_key
         {
-            std::size_t func_id;
-            std::size_t type_id;
+            std::size_t func_id = 0;
+            std::size_t type_id = 0;
 
             constexpr bool operator==(const dispatch_key& other) const
             {
@@ -291,7 +240,9 @@ namespace spore
         static inline std::recursive_mutex _mutex;
         static inline std::unordered_map<dispatch_key, void*, dispatch_hash> _func_map;
     };
+#endif
 
+    using proxy_dispatch_default = SPORE_PROXY_DISPATCH_DEFAULT;
 #if 0
     struct proxy_dispatch_map
     {
@@ -323,7 +274,6 @@ namespace spore
         static inline std::size_t _type_ids[width][height];
         static inline void* _func_ptrs[width][height];
     };
-#endif
 
     namespace proxies
     {
@@ -351,6 +301,7 @@ namespace spore
             return dispatch_instance;
         }
     }
+#endif
 
     namespace proxies
     {
@@ -380,9 +331,10 @@ namespace spore
                 };
             }
 
-            template <typename func_t, typename self_t, typename signature_t>
+            template <typename facade_t, typename func_t, typename self_t, typename signature_t>
             struct dispatch_mapping
             {
+                using facade_type = facade_t;
             };
 
             template <typename func_t, typename return_t>
@@ -423,7 +375,7 @@ namespace spore
             template <typename value_t, typename mapping_t>
             void* get_mapping_ptr() noexcept
             {
-                constexpr auto unwrap_mapping = []<typename func_t, typename self_t, typename return_t, typename... args_t>(const dispatch_mapping<func_t, self_t, return_t(args_t...)>) {
+                constexpr auto unwrap_mapping = []<typename facade_t, typename func_t, typename self_t, typename return_t, typename... args_t>(const dispatch_mapping<facade_t, func_t, self_t, return_t(args_t...)>) {
                     using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
                     const auto func = [](void_t* ptr, args_t... args) -> return_t {
                         if constexpr (std::is_const_v<std::remove_reference_t<self_t>>)
@@ -469,9 +421,12 @@ namespace spore
             template <typename value_t, typename mapping_t>
             void add_value_mapping_once() noexcept
             {
+                using facade_t = typename mapping_t::facade_type;
+                using dispatch_t = typename facade_t::dispatch_type;
                 using once_tag_t = proxies::detail::once_tag<value_t, mapping_t>;
+
                 static const once<once_tag_t> once = [] {
-                    proxy_dispatch_map::set_dispatch(
+                    dispatch_t::set_ptr(
                         proxies::detail::type_id<mapping_t>(),
                         proxies::detail::type_id<value_t>(),
                         proxies::detail::get_mapping_ptr<value_t, mapping_t>());
@@ -528,7 +483,8 @@ namespace spore
             constexpr return_t dispatch_impl(const func_t&, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
             {
                 using facade_t = std::decay_t<self_t>;
-                using mapping_t = proxies::detail::dispatch_mapping<func_t, self_t, return_t(args_t...)>;
+                using dispatch_t = typename facade_t::dispatch_type;
+                using mapping_t = proxies::detail::dispatch_mapping<facade_t, func_t, self_t, return_t(args_t...)>;
 
                 static_assert(std::is_empty_v<func_t>);
                 static_assert(std::is_empty_v<facade_t>);
@@ -538,7 +494,7 @@ namespace spore
                 using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
 
                 proxy_base_t& proxy = reinterpret_cast<proxy_base_t&>(self);
-                void* ptr = proxy_dispatch_map::get_dispatch(proxies::detail::type_id<mapping_t>(), proxy.type_id());
+                void* ptr = dispatch_t::get_ptr(proxies::detail::type_id<mapping_t>(), proxy.type_id());
 
                 SPORE_PROXY_ASSERT(ptr != nullptr);
 

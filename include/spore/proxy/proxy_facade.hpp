@@ -31,19 +31,47 @@ namespace spore
         {
             return decltype(proxies::detail::is_proxy_facade_impl(std::declval<value_t>()))::value;
         }
+
+        template <typename value_t>
+        struct get_in_place_type;
+
+        template <typename value_t>
+        struct get_in_place_type<std::in_place_type_t<value_t>>
+        {
+            using type = value_t;
+        };
+
+        template <typename facade_t>
+        consteval auto get_dispatch_type() requires(requires { typename facade_t::dispatch_type; })
+        {
+            return std::in_place_type<typename facade_t::dispatch_type>;
+        }
+
+        template <typename facade_t>
+        consteval auto get_dispatch_type() requires(not requires { typename facade_t::dispatch_type; })
+        {
+            return std::in_place_type<proxy_dispatch_default>;
+        }
+
+        template <typename facade_t>
+        using dispatch_type = typename proxies::detail::get_in_place_type<decltype(proxies::detail::get_dispatch_type<facade_t>())>::type;
     }
 
     // clang-format off
     template <typename value_t>
-    concept any_proxy_facade =
-        std::is_empty_v<value_t> and
-        std::is_default_constructible_v<value_t> and
+    concept any_proxy_facade = requires
+    {
+        std::is_empty_v<value_t>;
+        std::is_default_constructible_v<value_t>;
         proxies::detail::is_proxy_facade<value_t>();
+    };
     // clang-format on
 
     template <typename facade_t, typename... facades_t>
     struct SPORE_PROXY_ENFORCE_EBCO proxy_facade : facades_t...
     {
+        using dispatch_type = proxies::detail::dispatch_type<facade_t>;
+
       private:
         template <any_proxy_facade, any_proxy_storage>
         friend struct proxy;
