@@ -38,26 +38,24 @@ namespace spore
     concept any_proxy_facade =
         std::is_empty_v<value_t> and
         std::is_default_constructible_v<value_t> and
-        is_proxy_facade<value_t>();
+        proxies::detail::is_proxy_facade<value_t>();
     // clang-format on
 
     template <typename facade_t, typename... facades_t>
     struct SPORE_PROXY_ENFORCE_EBCO proxy_facade : facades_t...
     {
       private:
-        template <typename, any_proxy_storage>
+        template <any_proxy_facade, any_proxy_storage>
         friend struct proxy;
 
-        template <typename>
+        template <any_proxy_facade>
         friend struct proxy_view;
 
         friend facade_t;
 
         constexpr proxy_facade() noexcept
         {
-            // static_assert(any_proxy_facade<facade_t> and (... and any_proxy_facade<facades_t>));
-            static_assert(std::is_empty_v<facade_t> and (... and std::is_empty_v<facades_t>));
-            static_assert(std::is_default_constructible_v<facade_t> and (... and std::is_default_constructible_v<facades_t>));
+            static_assert(any_proxy_facade<facade_t> and (... and any_proxy_facade<facades_t>));
 
             (proxies::detail::add_facade<facade_t>());
             (proxies::detail::add_facade<facades_t>(), ...);

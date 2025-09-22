@@ -1,13 +1,12 @@
 #pragma once
 
 #include "spore/proxy/proxy.hpp"
-#include "spore/proxy/proxy_facade.hpp"
 
 #include <iostream>
 
 namespace spore::examples
 {
-    struct message_facade
+    struct message_facade : proxy_facade<message_facade>
     {
         void say_message(const std::string_view name)
         {

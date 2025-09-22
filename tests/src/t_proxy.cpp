@@ -14,7 +14,7 @@ namespace spore::tests
     };
     // clang-format on
 
-    struct facade_template
+    struct facade_template : proxy_facade<facade_template>
     {
         template <typename tag_t>
         void act()
@@ -42,7 +42,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("basic facade")
     {
-        struct facade
+        struct facade : proxy_facade<facade>
         {
             void act()
             {
@@ -72,7 +72,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     SECTION("shared facade")
     {
         // clang-format off
-        struct facade {};
+        struct facade : proxy_facade<facade> {};
         struct impl {};
         // clang-format on
 
@@ -95,7 +95,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     SECTION("unique facade")
     {
         // clang-format off
-        struct facade {};
+        struct facade : proxy_facade<facade> {};
         struct impl {};
         // clang-format on
 
@@ -115,7 +115,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("value facade")
     {
-        struct facade
+        struct facade : proxy_facade<facade>
         {
             [[nodiscard]] bool copied() const
             {
@@ -131,12 +131,12 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
             impl() = default;
 
-            impl(const impl& other)
+            impl(const impl&) noexcept
             {
                 copied = true;
             }
 
-            ~impl()
+            ~impl() noexcept
             {
                 if (destroyed)
                 {
@@ -175,7 +175,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("inline facade")
     {
-        struct facade
+        struct facade : proxy_facade<facade>
         {
             [[nodiscard]] bool copied() const
             {
@@ -191,12 +191,12 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
             impl() = default;
 
-            impl(const impl& other)
+            impl(const impl&) noexcept
             {
                 copied = true;
             }
 
-            ~impl()
+            ~impl() noexcept
             {
                 if (destroyed)
                 {
@@ -237,7 +237,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("view facade")
     {
-        struct facade
+        struct facade : proxy_facade<facade>
         {
             void act()
             {
@@ -275,7 +275,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("dispatch or throw")
     {
-        struct facade
+        struct facade : proxy_facade<facade>
         {
             void act() const
             {
@@ -295,7 +295,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("dispatch or default")
     {
-        struct facade
+        struct facade : proxy_facade<facade>
         {
             int act() const
             {
@@ -319,7 +319,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     {
         SECTION("dispatch forward r-value ref")
         {
-            struct facade
+            struct facade : proxy_facade<facade>
             {
                 void act() &&
                 {
@@ -339,7 +339,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         SECTION("dispatch forward l-value ref")
         {
-            struct facade
+            struct facade : proxy_facade<facade>
             {
                 void act() &
                 {
@@ -359,7 +359,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         SECTION("dispatch forward const ref")
         {
-            struct facade
+            struct facade : proxy_facade<facade>
             {
                 void act() const
                 {
@@ -380,7 +380,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("facade inheritance")
     {
-        struct facade_base1
+        struct facade_base1 : proxy_facade<facade_base1>
         {
             void func1()
             {
@@ -389,7 +389,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
             }
         };
 
-        struct facade_base2
+        struct facade_base2 : proxy_facade<facade_base2>
         {
             void func2()
             {
