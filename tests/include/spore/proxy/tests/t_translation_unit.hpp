@@ -2,9 +2,9 @@
 
 #include "spore/proxy/proxy.hpp"
 
-namespace spore::proxies::tests
+namespace spore::proxies::tests::tu
 {
-    struct translation_unit_facade : proxy_facade<translation_unit_facade>
+    struct facade : proxy_facade<facade>
     {
         std::size_t some_work() const
         {
@@ -19,7 +19,7 @@ namespace spore::proxies::tests
         }
     };
 
-    shared_proxy<translation_unit_facade> make_proxy();
-    std::size_t some_work(const shared_proxy<translation_unit_facade>& proxy);
-    std::size_t some_other_work(const shared_proxy<translation_unit_facade>& proxy);
+    shared_proxy<facade> make_proxy();
+    std::size_t some_work(const shared_proxy<facade>& proxy);
+    std::size_t some_other_work(const shared_proxy<facade>& proxy);
 }

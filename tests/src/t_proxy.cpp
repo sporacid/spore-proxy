@@ -1,9 +1,17 @@
 #include "catch2/catch_all.hpp"
 
 #include "spore/proxy/proxy.hpp"
+#include "spore/proxy/tests/t_thread.hpp"
 #include "spore/proxy/tests/t_translation_unit.hpp"
 
+#include <ranges>
+#include <thread>
 #include <typeindex>
+#include <vector>
+
+#ifndef SPORE_PROXY_THREAD_COUNT
+#    define SPORE_PROXY_THREAD_COUNT 24
+#endif
 
 namespace spore::tests
 {
@@ -457,9 +465,64 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("facade across translation unit")
     {
-        proxy p = proxies::tests::make_proxy();
+        proxy p = proxies::tests::tu::make_proxy();
 
-        REQUIRE(0 == proxies::tests::some_work(p));
-        REQUIRE(1 == proxies::tests::some_other_work(p));
+        REQUIRE(0 == proxies::tests::tu::some_work(p));
+        REQUIRE(1 == proxies::tests::tu::some_other_work(p));
+    }
+
+    SECTION("facade across threads")
+    {
+        constexpr std::size_t thread_count = SPORE_PROXY_THREAD_COUNT;
+        constexpr std::size_t result_count = 256;
+
+        std::atomic_flag flag {};
+        std::atomic<std::size_t> counter;
+
+        proxy p = proxies::make_value<proxies::tests::threads::facade, proxies::tests::threads::impl>();
+
+        std::atomic<std::size_t> results[thread_count][result_count] {};
+
+        const auto make_threads = [&]<std::size_t... seeds_v>(std::index_sequence<seeds_v...>) {
+            const auto make_thread = [&]<std::size_t... indices_v>(std::index_sequence<indices_v...>) {
+                return std::thread {
+                    [&] {
+                        while (not flag.test())
+                        {
+                        }
+
+                        const std::size_t thread_index = counter++;
+
+                        const auto set_result = [&]<std::size_t index_v> {
+                            results[thread_index][index_v] = p.act<index_v>();
+                        };
+
+                        (set_result.template operator()<indices_v>(), ...);
+                    },
+                };
+            };
+
+            std::vector<std::thread> threads;
+
+            (threads.emplace_back(make_thread(proxies::tests::threads::make_shuffled_index_sequence<result_count, seeds_v>())), ...);
+
+            return threads;
+        };
+
+        std::vector<std::thread> threads = make_threads(proxies::tests::threads::make_random_sequence<thread_count>());
+
+        while (not flag.test_and_set())
+        {
+        }
+
+        std::ranges::for_each(threads, [](std::thread& thread) { thread.join(); });
+
+        for (std::size_t thread_index = 0; thread_index < thread_count; ++thread_index)
+        {
+            for (std::size_t result_index = 0; result_index < result_count; ++result_index)
+            {
+                REQUIRE(result_index == results[thread_index][result_index]);
+            }
+        }
     }
 }

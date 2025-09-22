@@ -42,6 +42,7 @@ namespace spore
     {
         static void* get_dispatch(const std::size_t func_id, const std::size_t type_id) noexcept
         {
+            std::lock_guard lock{_mutex};
             const dispatch_key dispatch_key {func_id, type_id};
             const auto it_func = _func_map.find(dispatch_key);
             return it_func != _func_map.end() ? it_func->second : nullptr;
@@ -49,6 +50,7 @@ namespace spore
 
         static void set_dispatch(const std::size_t func_id, const std::size_t type_id, void* ptr) noexcept
         {
+            std::lock_guard lock{_mutex};
             const dispatch_key dispatch_key {func_id, type_id};
             _func_map.insert_or_assign(dispatch_key, ptr);
         }
@@ -73,6 +75,7 @@ namespace spore
             }
         };
 
+        static inline std::mutex _mutex;
         static inline std::unordered_map<dispatch_key, void*, dispatch_hash> _func_map;
     };
 

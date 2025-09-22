@@ -15,6 +15,15 @@ target_include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+include(ProcessorCount)
+
+ProcessorCount(PROCESSOR_COUNT)
+
+target_compile_definitions(
+  ${TARGET_NAME} PRIVATE
+  SPORE_PROXY_THREAD_COUNT=${PROCESSOR_COUNT}
+)
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/content/catch2/extras)
 
 find_package(Catch2 CONFIG REQUIRED)

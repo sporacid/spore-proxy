@@ -1,8 +1,8 @@
 #include "spore/proxy/tests/t_translation_unit.hpp"
 
-namespace spore::proxies::tests
+namespace spore::proxies::tests::tu
 {
-    struct translation_unit_impl
+    struct impl
     {
         std::size_t some_work() const
         {
@@ -15,8 +15,8 @@ namespace spore::proxies::tests
         }
     };
 
-    shared_proxy<translation_unit_facade> make_proxy()
+    shared_proxy<facade> make_proxy()
     {
-        return proxies::make_shared<translation_unit_facade, translation_unit_impl>();
+        return proxies::make_shared<facade, impl>();
     }
 }
