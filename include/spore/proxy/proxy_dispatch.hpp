@@ -203,6 +203,15 @@ namespace spore
                 }
             };
 
+            template <typename facade_t>
+            proxy_base& cast_facade_to_proxy(facade_t&);
+
+            template <typename facade_t>
+            proxy_base&& cast_facade_to_proxy(facade_t&&);
+
+            template <typename facade_t>
+            const proxy_base& cast_facade_to_proxy(const facade_t&);
+
             template <typename value_t, typename func_t, typename self_t, typename return_t, typename... args_t>
             void* get_dispatch_ptr(const dispatch_mapping<func_t, self_t, return_t(args_t...)>) noexcept
             {
@@ -254,9 +263,6 @@ namespace spore
                         proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
                             proxies::detail::init_dispatch_once<base_facade_t, value_t>();
                         });
-                        // proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
-                        //     proxies::detail::init_dispatch_once<base_facade_t, value_t>();
-                        // });
                     });
 
                     return true;
@@ -280,15 +286,8 @@ namespace spore
                 using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
                 using proxy_bytes_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const std::byte, std::byte>;
 
-                const auto gag = [] {
-                    constexpr std::size_t dummy_value = 0x100000;
-                    const facade_t* derived_ptr = std::bit_cast<const facade_t*>(dummy_value);
-                    const proxy_view<facade_t>* base_ptr = static_cast<const base_t*>(derived_ptr);
-                    const std::size_t offset = std::bit_cast<std::size_t>(base_ptr) - dummy_value;
-                    return offset;
-                };
-
-                proxy_base_t& proxy = *reinterpret_cast<proxy_base_t*>(reinterpret_cast<proxy_bytes_t*>(std::addressof(self)) - sizeof(proxy_base));
+                proxy_base_t& proxy = cast_facade_to_proxy(self);
+                // proxy_base_t& proxy = *reinterpret_cast<proxy_base_t*>(reinterpret_cast<proxy_bytes_t*>(std::addressof(self)) - sizeof(proxy_base));
                 void* ptr = proxy_dispatch_map::get_dispatch(proxies::detail::type_id<mapping_t>(), proxy.type_id());
 
                 SPORE_PROXY_ASSERT(ptr != nullptr);

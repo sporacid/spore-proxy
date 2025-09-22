@@ -153,6 +153,48 @@ namespace spore
 
     namespace proxies
     {
+        namespace detail
+        {
+            template <typename facade_t>
+            std::size_t get_proxy_offset()
+            {
+                constexpr std::size_t dummy_value = 0x100000;
+                using proxy_t = proxy_view<facade_t>;
+                const proxy_t* proxy = std::bit_cast<const proxy_t*>(dummy_value);
+                const facade_t* facade = static_cast<const facade_t*>(proxy);
+                const std::size_t offset = std::bit_cast<std::size_t>(facade) - dummy_value;
+                return offset;
+            }
+
+            template <typename facade_t>
+            void* cast_facade_to_proxy(const void* ptr)
+            {
+                static const std::size_t offset = get_proxy_offset<facade_t>();
+                return reinterpret_cast<std::byte*>(const_cast<void*>(ptr)) - offset;
+            }
+
+            template <typename facade_t>
+            proxy_base& cast_facade_to_proxy(facade_t& facade)
+            {
+                void* ptr = cast_facade_to_proxy<std::decay_t<facade_t>>(std::addressof(facade));
+                return *reinterpret_cast<proxy_base*>(ptr);
+            }
+
+            template <typename facade_t>
+            proxy_base&& cast_facade_to_proxy(facade_t&& facade)
+            {
+                void* ptr = cast_facade_to_proxy<std::decay_t<facade_t>>(std::addressof(facade));
+                return std::move(*reinterpret_cast<proxy_base*>(ptr));
+            }
+
+            template <typename facade_t>
+            const proxy_base& cast_facade_to_proxy(const facade_t& facade)
+            {
+                void* ptr = cast_facade_to_proxy<std::decay_t<facade_t>>(std::addressof(facade));
+                return *reinterpret_cast<const proxy_base*>(ptr);
+            }
+        }
+
         template <any_proxy_facade facade_t, typename value_t, typename... args_t>
         constexpr inline_proxy<facade_t, value_t> make_inline(args_t&&... args) noexcept(std::is_nothrow_constructible_v<inline_proxy<facade_t, value_t>, args_t&&...>)
         {
