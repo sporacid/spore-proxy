@@ -7,6 +7,7 @@
 #include "spore/proxy/proxy_base.hpp"
 #include "spore/proxy/proxy_macros.hpp"
 
+#include <array>
 #include <cstddef>
 #include <functional>
 #include <mutex>
@@ -35,7 +36,10 @@ namespace spore
 
     namespace proxies::detail
     {
-
+        constexpr std::uint16_t make_checksum(const std::size_t mapping_id, const std::size_t type_id) noexcept
+        {
+            return static_cast<std::uint16_t>((mapping_id ^ type_id) & std::numeric_limits<std::uint16_t>::max());
+        }
     }
 
     struct proxy_dispatch_functional
@@ -44,48 +48,82 @@ namespace spore
         std::function<void(const std::size_t, const std::size_t, void*)> set_dispatch;
     };
 
-    struct proxy_dispatch_ptr
-    {
-        static constexpr std::intptr_t type_hash_mask = 0xffff000000000000ULL;
-        static constexpr std::intptr_t ptr_mask = 0x0000ffffffffffffULL;
-
-        proxy_dispatch_ptr(void* ptr, const std::uint16_t type_hash)
-        {
-            _ptr = std::bit_cast<std::intptr_t>(ptr) & ptr_mask;
-            _type_hash = static_cast<std::intptr_t>(type_hash) & type_hash_mask;
-        }
-
-        void* ptr() const noexcept
-        {
-            std::intptr_t ptr = _ptr;
-
-#if defined(__x86_64__) || defined(_M_X64)
-            constexpr std::intptr_t sign_bit = 1ULL << 47ULL;
-            constexpr std::intptr_t sign_extension_bits = 0xffff000000000000;
-
-            if (ptr & sign_bit)
-            {
-                ptr |= sign_extension_bits;
-            }
-#endif
-            return std::bit_cast<void*>(ptr);
-        }
-
-        std::uint16_t type_hash() const noexcept
-        {
-            return _type_hash & type_hash_mask;
-        }
-
-      private:
-        std::intptr_t _type_hash : 16;
-        std::intptr_t _ptr : 48;
-    };
+    //    struct proxy_dispatch_data
+    //    {
+    //        static constexpr std::intptr_t checksum_mask = 0xffff000000000000ULL;
+    //        static constexpr std::intptr_t ptr_mask = 0x0000ffffffffffffULL;
+    //
+    //        proxy_dispatch_data(void* ptr, const std::uint16_t checksum)
+    //        {
+    //            _checksum = static_cast<std::intptr_t>(checksum) & checksum_mask;
+    //            _ptr = std::bit_cast<std::intptr_t>(ptr) & ptr_mask;
+    //        }
+    //
+    //        void* ptr() const noexcept
+    //        {
+    //            std::intptr_t ptr = _ptr;
+    //
+    // #if defined(__x86_64__) || defined(_M_X64)
+    //            constexpr std::intptr_t sign_bit = 1ULL << 47ULL;
+    //            constexpr std::intptr_t sign_extension_bits = 0xffff000000000000;
+    //
+    //            if (ptr & sign_bit)
+    //            {
+    //                ptr |= sign_extension_bits;
+    //            }
+    // #endif
+    //            return std::bit_cast<void*>(ptr);
+    //        }
+    //
+    //        std::uint16_t checksum() const noexcept
+    //        {
+    //            return _checksum & checksum_mask;
+    //        }
+    //
+    //      private:
+    //        std::intptr_t _checksum : 16;
+    //        std::intptr_t _ptr : 48;
+    //    };
 
     template <template <typename...> typename unordered_map_t = std::unordered_map, typename mutex_t = proxies::detail::spin_lock>
     struct proxy_dispatch_dynamic
     {
+        static void* get_ptr(const std::size_t mapping_id, const std::size_t type_id) noexcept
+        {
+            const dispatch_key dispatch_key {mapping_id, type_id};
+            const std::lock_guard lock {_mutex};
+            return _ptr_map[dispatch_key];
+        }
+
+        static void set_ptr(const std::size_t mapping_id, const std::size_t type_id, void* ptr) noexcept
+        {
+            const dispatch_key dispatch_key {mapping_id, type_id};
+            const std::lock_guard lock {_mutex};
+            _ptr_map[dispatch_key] = ptr;
+        }
+
       private:
-        static inline unordered_map_t<std::size_t, proxy_dispatch_ptr, std::identity> _ptr_map;
+        struct dispatch_key
+        {
+            std::size_t mapping_id;
+            std::size_t type_id;
+
+            constexpr bool operator==(const dispatch_key& other) const
+            {
+                return std::tie(mapping_id, type_id) == std::tie(other.mapping_id, other.type_id);
+            }
+        };
+
+        struct dispatch_hash
+        {
+            constexpr std::size_t operator()(const dispatch_key& key) const
+            {
+                return proxies::detail::hash_combine(key.type_id, key.mapping_id);
+            }
+        };
+
+        static inline mutex_t _mutex;
+        static inline unordered_map_t<dispatch_key, void*, dispatch_hash> _ptr_map;
     };
 
     template <std::size_t size_v, typename mutex_t = proxies::detail::spin_lock>
@@ -93,14 +131,124 @@ namespace spore
     {
         static void* get_ptr(const std::size_t mapping_id, const std::size_t type_id) noexcept
         {
+            const std::size_t dispatch_id = proxies::detail::hash_combine(mapping_id, type_id);
+            const std::uint16_t checksum = proxies::detail::make_checksum(mapping_id, type_id);
+
+            std::size_t dispatch_index = dispatch_id % size_v;
+            std::size_t seed_index = 0;
+
+            const std::lock_guard lock {_mutex};
+
+            while (seed_index < std::size(_seeds))
+            {
+                const dispatch_ptr& ptr_data = _ptr_map[dispatch_index];
+
+                if (not ptr_data.valid() or checksum == ptr_data.checksum())
+                {
+                    return ptr_data.ptr();
+                }
+
+                ++seed_index;
+            }
+
+            return nullptr;
         }
 
         static void set_ptr(const std::size_t mapping_id, const std::size_t type_id, void* ptr) noexcept
         {
+            const std::size_t dispatch_id = proxies::detail::hash_combine(mapping_id, type_id);
+            const std::uint16_t checksum = proxies::detail::make_checksum(mapping_id, type_id);
+
+            std::size_t dispatch_index = dispatch_id % size_v;
+            std::size_t seed_index = 0;
+
+            const std::lock_guard lock {_mutex};
+
+            while (seed_index < std::size(_seeds))
+            {
+                dispatch_ptr& ptr_data = _ptr_map[dispatch_index];
+
+                if (not ptr_data.valid())
+                {
+                    ptr_data = dispatch_ptr {ptr, checksum};
+                    return;
+                }
+
+                ++seed_index;
+            }
+
+            SPORE_PROXY_ASSERT(false);
         }
 
       private:
-        static inline proxy_dispatch_ptr _ptr_map[size_v];
+        struct dispatch_ptr
+        {
+            static constexpr std::intptr_t valid_mask = 0x8000000000000000ULL;
+            static constexpr std::intptr_t checksum_mask = 0x7fff000000000000ULL;
+            static constexpr std::intptr_t ptr_mask = 0x0000ffffffffffffULL;
+
+            dispatch_ptr() = default;
+
+            dispatch_ptr(void* ptr, const std::uint16_t checksum)
+            {
+                _valid = static_cast<std::intptr_t>(true);
+                _checksum = static_cast<std::intptr_t>(checksum) & checksum_mask;
+                _ptr = std::bit_cast<std::intptr_t>(ptr) & ptr_mask;
+            }
+
+            bool valid() const noexcept
+            {
+                return _valid;
+            }
+
+            std::uint16_t checksum() const noexcept
+            {
+                return _checksum;
+            }
+
+            void* ptr() const noexcept
+            {
+                std::intptr_t ptr = _ptr;
+
+#if defined(__x86_64__) || defined(_M_X64)
+                constexpr std::intptr_t sign_bit = 1ULL << 47ULL;
+                constexpr std::intptr_t sign_extension_bits = 0xffff000000000000;
+
+                if (ptr & sign_bit)
+                {
+                    ptr |= sign_extension_bits;
+                }
+#endif
+                return std::bit_cast<void*>(ptr);
+            }
+
+          private:
+            std::intptr_t _valid : 1;
+            std::intptr_t _checksum : 16;
+            std::intptr_t _ptr : 48;
+        };
+
+        static inline mutex_t _mutex;
+        static inline std::array<dispatch_ptr, size_v> _ptr_map {};
+
+        static constexpr std::size_t _seeds[] {
+            0x65d859d632a0a935ULL,
+            0x40dc6be7c399f54aULL,
+            0xa21e06cc24770a56ULL,
+            0xa73a74747989357dULL,
+            0xe3d482338fcde2bbULL,
+            0x144bdebc9fa82bf6ULL,
+            0x80feaaeb42ac942fULL,
+            0xb3e9e45e5b4689f4ULL,
+            0x93c836e6d3ab52a3ULL,
+            0x8dc4e3c4856b16ceULL,
+            0x409989a18ae7049bULL,
+            0x5b547d631c3a9c8aULL,
+            0xa33950eba26453edULL,
+            0x9a9e29da9bde239bULL,
+            0x1b2d691230396398ULL,
+            0xc79bcfade4a11e6dULL,
+        };
     };
 
     struct proxy_dispatch_map
