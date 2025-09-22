@@ -9,6 +9,16 @@ namespace spore::proxies::tests
         {
             return value_v;
         }
+
+        std::size_t some_work() const
+        {
+            return 0;
+        }
+
+        std::size_t some_other_work() const
+        {
+            return 1;
+        }
     };
 
     shared_proxy<translation_unit_facade> make_proxy()

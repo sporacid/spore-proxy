@@ -12,6 +12,18 @@ namespace spore::proxies::tests
             constexpr auto func = [](auto& self) { return self.template act<value_v>(); };
             return proxies::dispatch<std::size_t>(func, *this);
         }
+
+        std::size_t some_work() const
+        {
+            constexpr auto func = [](auto& self) { return self.some_work(); };
+            return proxies::dispatch<std::size_t>(func, *this);
+        }
+
+        std::size_t some_other_work() const
+        {
+            constexpr auto func = [](auto& self) { return self.some_other_work(); };
+            return proxies::dispatch<std::size_t>(func, *this);
+        }
     };
 
     shared_proxy<translation_unit_facade> make_proxy();

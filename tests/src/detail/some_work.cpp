@@ -4,6 +4,6 @@ namespace spore::proxies::tests
 {
     std::size_t some_work(const shared_proxy<translation_unit_facade>& proxy)
     {
-        return proxy.act<0>();
+        return proxy.some_work();
     }
 }
