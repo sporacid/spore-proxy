@@ -5,7 +5,6 @@
 #include <concepts>
 #include <cstddef>
 #include <memory>
-#include <stdexcept>
 #include <utility>
 #include <variant>
 

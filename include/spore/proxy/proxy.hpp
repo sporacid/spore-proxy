@@ -16,6 +16,23 @@ namespace spore
     {
         constexpr proxy_view() = default;
 
+        template <typename value_t>
+        constexpr proxy_view(value_t&& value) noexcept
+            : proxy_base(proxies::detail::type_id<std::decay_t<value_t>>())
+        {
+            proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, std::decay_t<value_t>>();
+            proxies::detail::init_dispatch_once<facade_t, std::decay_t<value_t>>();
+
+            if constexpr (std::is_const_v<std::remove_reference_t<value_t>>)
+            {
+                _ptr = const_cast<value_t*>(std::addressof(value));
+            }
+            else
+            {
+                _ptr = std::addressof(value);
+            }
+        }
+
         constexpr proxy_view(const proxy_view&) noexcept = default;
         constexpr proxy_view(proxy_view&&) noexcept = default;
 
@@ -40,41 +57,8 @@ namespace spore
             : proxy_base(proxies::detail::type_id<value_t>()),
               _storage(type, std::forward<args_t>(args)...)
         {
-            constexpr auto type_id = proxies::detail::type_id<value_t>();
             proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
-#if 0
             proxies::detail::init_dispatch_once<facade_t, value_t>();
-#else
-            // new value.
-            // iterate on all mappings of facade and bases
-            proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<facade_t>>([]<typename mapping_t> {
-                using func_t = typename mapping_t::func_type;
-                void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
-                proxy_dispatch_map::set_dispatch(proxies::detail::type_id<mapping_t>(), proxies::detail::type_id<value_t>(), ptr);
-            });
-
-            proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
-                proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<base_facade_t>>([]<typename mapping_t> {
-                    using func_t = typename mapping_t::func_type;
-                    void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
-                    proxy_dispatch_map::set_dispatch(proxies::detail::type_id<mapping_t>(), proxies::detail::type_id<value_t>(), ptr);
-                });
-            });
-
-//            proxies::detail::type_sets::for_each<proxies::detail::super_tag<facade_t>>([]<typename super_facade_t> {
-//                proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<super_facade_t>>([]<typename mapping_t> {
-//                    using func_t = typename mapping_t::func_type;
-//                    void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
-//                    proxy_dispatch_map::set_dispatch(
-//                        proxies::detail::type_id<func_t>(), proxies::detail::type_id<value_t>(), ptr);
-//                });
-//            });
-#endif
-#if 0
-            proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
-                proxies::detail::init_dispatch_once<base_facade_t, value_t>();
-            });
-#endif
 
             _ptr = _storage.ptr();
         }
@@ -169,46 +153,6 @@ namespace spore
 
     namespace proxies
     {
-        template <typename derived_t, typename base_t>
-        std::size_t get_base_offset_impl() requires std::derived_from<derived_t, base_t>
-        {
-            constexpr std::size_t dummy_value = 0x100000;
-            const derived_t* derived_ptr = std::bit_cast<const derived_t*>(dummy_value);
-            const base_t* base_ptr = static_cast<const base_t*>(derived_ptr);
-            const std::size_t offset = std::bit_cast<std::size_t>(base_ptr) - dummy_value;
-            return offset;
-        }
-
-        template <typename self_t>
-        proxy_base& cast_to_proxy_base(self_t& self)
-        {
-            using facade_t = std::decay_t<self_t>;
-            using proxy_t = proxy<facade_t, proxy_storage_invalid>;
-            static const std::size_t offset = get_base_offset_impl<proxy_t, facade_t>();
-            proxy_t& proxy = *reinterpret_cast<proxy_t*>(reinterpret_cast<std::byte*>(std::addressof(self)) + offset);
-            return static_cast<proxy_base&>(proxy);
-        }
-
-        template <typename self_t>
-        proxy_base&& cast_to_proxy_base(self_t&& self)
-        {
-            using facade_t = std::decay_t<self_t>;
-            using proxy_t = proxy<facade_t, proxy_storage_invalid>;
-            static const std::size_t offset = get_base_offset_impl<proxy_t, facade_t>();
-            proxy_t& proxy = *reinterpret_cast<proxy_t*>(reinterpret_cast<std::byte*>(std::addressof(self)) + offset);
-            return std::move(static_cast<proxy_base&>(proxy));
-        }
-
-        template <typename self_t>
-        const proxy_base& cast_to_proxy_base(const self_t& self)
-        {
-            using facade_t = std::decay_t<self_t>;
-            using proxy_t = proxy<facade_t, proxy_storage_invalid>;
-            static const std::size_t offset = get_base_offset_impl<proxy_t, facade_t>();
-            const proxy_t& proxy = *reinterpret_cast<const proxy_t*>(reinterpret_cast<const std::byte*>(std::addressof(self)) + offset);
-            return static_cast<const proxy_base&>(proxy);
-        }
-
         template <any_proxy_facade facade_t, typename value_t, typename... args_t>
         constexpr inline_proxy<facade_t, value_t> make_inline(args_t&&... args) noexcept(std::is_nothrow_constructible_v<inline_proxy<facade_t, value_t>, args_t&&...>)
         {

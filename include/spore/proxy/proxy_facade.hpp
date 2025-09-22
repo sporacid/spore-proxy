@@ -84,14 +84,14 @@ namespace spore
 #else
             // new bases.
             // iterate on all values of facade and add base mappings
-            proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
-                (proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<facades_t>>([]<typename mapping_t> {
-                    using func_t = typename mapping_t::func_type;
-                    void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
-                    proxy_dispatch_map::set_dispatch(proxies::detail::type_id<mapping_t>(), proxies::detail::type_id<value_t>(), ptr);
-                }),
-                    ...);
-            });
+            // proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
+            //     (proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<facades_t>>([]<typename mapping_t> {
+            //         using func_t = typename mapping_t::func_type;
+            //         void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
+            //         proxy_dispatch_map::set_dispatch(proxies::detail::type_id<mapping_t>(), proxies::detail::type_id<value_t>(), ptr);
+            //     }),
+            //         ...);
+            // });
             // proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
             //     proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<super_facade_t>, mapping_t>();
             // });
