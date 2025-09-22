@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
+option(SPORE_WITH_BENCHMARKS "Whether to build benchmarks" ON)
 option(SPORE_WITH_EXAMPLES "Whether to build examples" ON)
 option(SPORE_WITH_TESTS "Whether to build tests" ON)
 
@@ -14,6 +15,10 @@ endif ()
 project(spore-proxy VERSION ${SPORE_VERSION})
 
 add_subdirectory(src)
+
+if (SPORE_WITH_BENCHMARKS)
+  add_subdirectory(benchmarks)
+endif ()
 
 if (SPORE_WITH_EXAMPLES)
   add_subdirectory(examples)
