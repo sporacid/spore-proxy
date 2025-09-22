@@ -143,7 +143,7 @@ namespace spore
             namespace
             {
                 template <typename facade_t>
-                struct dispatch_tag
+                struct mapping_tag
                 {
                 };
 
@@ -154,11 +154,6 @@ namespace spore
 
                 template <typename facade_t>
                 struct base_tag
-                {
-                };
-
-                template <typename facade_t>
-                struct super_tag
                 {
                 };
             }
@@ -242,7 +237,7 @@ namespace spore
                         proxies::detail::init_dispatch_once<base_facade_t, value_t>();
                     });
 
-                    proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<facade_t>>([]<typename mapping_t> {
+                    proxies::detail::type_sets::for_each<proxies::detail::mapping_tag<facade_t>>([]<typename mapping_t> {
                         void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
                         proxy_dispatch_map::set_dispatch(
                             proxies::detail::type_id<mapping_t>(), proxies::detail::type_id<value_t>(), ptr);
@@ -280,14 +275,14 @@ namespace spore
                 static_assert(std::is_empty_v<func_t>);
                 static_assert(std::is_empty_v<facade_t>);
 
-                proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<facade_t>, mapping_t>();
+                proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
                 proxies::detail::init_dispatch_once<facade_t>(mapping_t {});
 
-                using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
-                using proxy_bytes_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const std::byte, std::byte>;
+                // using proxy_bytes_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const std::byte, std::byte>;
 
+                                using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
                 proxy_base_t& proxy = cast_facade_to_proxy(self);
-                // proxy_base_t& proxy = *reinterpret_cast<proxy_base_t*>(reinterpret_cast<proxy_bytes_t*>(std::addressof(self)) - sizeof(proxy_base));
+                // proxy_base_t& proxy = reinterpret_cast<proxy_base_t&>(self);
                 void* ptr = proxy_dispatch_map::get_dispatch(proxies::detail::type_id<mapping_t>(), proxy.type_id());
 
                 SPORE_PROXY_ASSERT(ptr != nullptr);
@@ -316,6 +311,12 @@ namespace spore
         {
             return proxies::detail::dispatch_impl<return_t>(
                 proxies::detail::dispatch_or_default<func_t, return_t> {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
+        }
+
+        template <typename facade_t, typename... facades_t>
+        consteval void extends()
+        {
+            (proxies::detail::type_sets::emplace<proxies::detail::base_tag<facade_t>, facades_t>(), ...);
         }
     }
 }
