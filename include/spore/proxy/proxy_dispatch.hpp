@@ -13,6 +13,9 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include <fstream>
+#include <iostream>
+
 #ifndef SPORE_PROXY_DISPATCH_HEIGHT
 #    define SPORE_PROXY_DISPATCH_HEIGHT static_cast<std::size_t>(32)
 #endif
@@ -20,29 +23,6 @@
 #ifndef SPORE_PROXY_DISPATCH_WIDTH
 #    define SPORE_PROXY_DISPATCH_WIDTH static_cast<std::size_t>(1024)
 #endif
-
-namespace spore
-{
-    struct proxy_dispatch_key
-    {
-        std::size_t func_id;
-        std::size_t type_id;
-
-        bool operator==(const proxy_dispatch_key& other) const
-        {
-            return std::tie(func_id, type_id) == std::tie(other.func_id, other.type_id);
-        }
-    };
-}
-
-template <>
-struct std::hash<spore::proxy_dispatch_key>
-{
-    constexpr std::size_t operator()(const spore::proxy_dispatch_key& key) const
-    {
-        return key.func_id ^ (key.func_id + 0x9e3779b9 + (key.type_id << 6) + (key.type_id >> 2));
-    }
-};
 
 namespace spore
 {
@@ -65,19 +45,38 @@ namespace spore
     {
         static void* get_dispatch(const std::size_t func_id, const std::size_t type_id) noexcept
         {
-            const proxy_dispatch_key dispatch_key {func_id, type_id};
+            const dispatch_key dispatch_key {func_id, type_id};
             const auto it_func = _func_map.find(dispatch_key);
             return it_func != _func_map.end() ? it_func->second : nullptr;
         }
 
         static void set_dispatch(const std::size_t func_id, const std::size_t type_id, void* ptr) noexcept
         {
-            const proxy_dispatch_key dispatch_key {func_id, type_id};
+            const dispatch_key dispatch_key {func_id, type_id};
             _func_map.insert_or_assign(dispatch_key, ptr);
         }
 
       private:
-        static inline std::unordered_map<proxy_dispatch_key, void*> _func_map;
+        struct dispatch_key
+        {
+            std::size_t func_id;
+            std::size_t type_id;
+
+            constexpr bool operator==(const dispatch_key& other) const
+            {
+                return std::tie(func_id, type_id) == std::tie(other.func_id, other.type_id);
+            }
+        };
+
+        struct dispatch_hash
+        {
+            constexpr std::size_t operator()(const dispatch_key& key) const
+            {
+                return key.func_id ^ (key.func_id + 0x9e3779b9 + (key.type_id << 6) + (key.type_id >> 2));
+            }
+        };
+
+        static inline std::unordered_map<dispatch_key, void*, dispatch_hash> _func_map;
     };
 
 #if 0
@@ -142,6 +141,16 @@ namespace spore
 
     namespace proxies
     {
+
+        template <typename self_t>
+        proxy_base& cast_to_proxy_base(self_t&);
+
+        template <typename self_t>
+        proxy_base&& cast_to_proxy_base(self_t&&);
+
+        template <typename self_t>
+        const proxy_base& cast_to_proxy_base(const self_t&);
+
         namespace detail
         {
             // one per translation unit
@@ -159,6 +168,11 @@ namespace spore
 
             template <typename facade_t>
             struct base_tag
+            {
+            };
+
+            template <typename facade_t>
+            struct super_tag
             {
             };
 
@@ -244,21 +258,33 @@ namespace spore
                 return reinterpret_cast<void*>(+func);
             }
 
+#if 0
             template <typename facade_t, typename value_t>
             void init_dispatch_once() noexcept
             {
                 struct tag;
                 const bool once = [] {
+                    proxies::detail::type_sets::for_each<proxies::detail::super_tag<facade_t>>([]<typename super_facade_t> {
+                        proxies::detail::init_dispatch_once<super_facade_t, value_t>();
+                        proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<super_facade_t>>([]<typename mapping_t> {
+                            using func_t = typename mapping_t::func_type;
+                            void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
+                            proxy_dispatch_map::set_dispatch(
+                                proxies::detail::type_id<func_t>(), proxies::detail::type_id<value_t>(), ptr);
+                        });
+                    });
+
+#    if 0
                     proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
                         proxies::detail::init_dispatch_once<base_facade_t, value_t>();
-#if 0
+#        if 0
                         proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<base_facade_t>>([]<typename mapping_t> {
                             using func_t = typename mapping_t::func_type;
                             void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
                             proxy_dispatch_map::set_dispatch(
                                 proxies::detail::type_id<func_t>(), proxies::detail::type_id<value_t>(), ptr);
                         });
-#endif
+#        endif
                     });
 
                     proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<facade_t>>([]<typename mapping_t> {
@@ -267,6 +293,7 @@ namespace spore
                         proxy_dispatch_map::set_dispatch(
                             proxies::detail::type_id<func_t>(), proxies::detail::type_id<value_t>(), ptr);
                     });
+#    endif
 
                     return true;
                 }();
@@ -280,17 +307,21 @@ namespace spore
                 struct tag;
                 const bool once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
-                        proxies::detail::init_dispatch_once<facade_t, value_t>();
+                        // proxies::detail::init_dispatch_once<facade_t, value_t>();
+                        proxies::detail::type_sets::for_each<proxies::detail::super_tag<facade_t>>([]<typename super_facade_t> {
+                            proxies::detail::init_dispatch_once<super_facade_t, value_t>();
+                        });
                         proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
+                            // proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<base_facade_t>, dispatch_mapping<func_t, self_t, return_t(args_t...)>>();
                             proxies::detail::init_dispatch_once<base_facade_t, value_t>();
-#if 0
+#    if 0
                             proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<base_facade_t>>([]<typename mapping_t> {
                                 using func2_t = typename mapping_t::func_type;
                                 void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
                                 proxy_dispatch_map::set_dispatch(
                                     proxies::detail::type_id<func2_t>(), proxies::detail::type_id<value_t>(), ptr);
                             });
-#endif
+#    endif
                         });
                     });
 
@@ -299,10 +330,13 @@ namespace spore
 
                 std::ignore = once;
             }
+#endif
 
             template <typename return_t, typename func_t, typename self_t, typename... args_t>
             constexpr return_t dispatch_impl(const func_t&, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
             {
+                // constexpr std::size_t location_hash = proxies::detail::hash_source_location(location);
+
                 using facade_t = std::decay_t<self_t>;
                 using mapping_t = proxies::detail::dispatch_mapping<func_t, self_t, return_t(args_t...)>;
 
@@ -310,11 +344,95 @@ namespace spore
                 static_assert(std::is_empty_v<facade_t>);
 
                 proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<facade_t>, mapping_t>();
+#if 0
                 proxies::detail::init_dispatch_once<facade_t>(mapping_t {});
+#else
+                // new mapping for facade, possibly a base.
+                // iterate from base to super and add new mapping
 
-                using proxy_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
-                proxy_t& proxy = reinterpret_cast<proxy_t&>(self);
-                void* ptr = proxy_dispatch_map::get_dispatch(proxies::detail::type_id<func_t>(), proxy.type_id());
+                // proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
+                //     void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
+                //     proxy_dispatch_map::set_dispatch(proxies::detail::type_id<func_t>(), proxies::detail::type_id<value_t>(), ptr);
+                // });
+
+                proxies::detail::type_sets::for_each<proxies::detail::super_tag<facade_t>>([]<typename super_facade_t> {
+                    // proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<super_facade_t>, mapping_t>();
+                    proxies::detail::type_sets::for_each<proxies::detail::value_tag<super_facade_t>>([]<typename value_t> {
+                        void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
+                        proxy_dispatch_map::set_dispatch(proxies::detail::type_id<mapping_t>(), proxies::detail::type_id<value_t>(), ptr);
+                    });
+                });
+                //                proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename super_facade_t> {
+                //                    proxies::detail::type_sets::emplace<proxies::detail::dispatch_tag<super_facade_t>, mapping_t>();
+                //                });
+
+                proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
+                    void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
+                    proxy_dispatch_map::set_dispatch(proxies::detail::type_id<mapping_t>(), proxies::detail::type_id<value_t>(), ptr);
+                });
+#endif
+
+                // using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
+                // proxy_base_t& proxy = reinterpret_cast<proxy_base_t&>(self);
+                // auto&& proxy = cast_to_proxy_base<facade_t>(self);
+                using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
+                using bytes_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const std::byte, std::byte>;
+                proxy_base_t& proxy = *reinterpret_cast<proxy_base_t*>(reinterpret_cast<bytes_t*>(std::addressof(self)) - sizeof(proxy_base));
+                // proxy_base_t& proxy = reinterpret_cast<proxy_base_t&>(self);
+                void* ptr = proxy_dispatch_map::get_dispatch(proxies::detail::type_id<mapping_t>(), proxy.type_id());
+
+#if 0
+                std::ofstream file {"C:/Dev/wtf.txt"};
+
+                proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<facade_t>>([&]<typename mapping_t> {
+                    file << typeid(mapping_t).name() << std::endl;
+                    file << proxies::detail::type_id<mapping_t>() << std::endl;
+                    // print_function_name<typename mapping_t::func_type>(file);
+                    file << std::endl;
+                });
+
+                //                proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([&]<typename value_t> {
+                //                    proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<facade_t>>([&]<typename mapping_t> {
+                //                        file << typeid(value_t).name() << std::endl;
+                //                        file << typeid(mapping_t).name() << std::endl;
+                //                        file << proxies::detail::type_id<value_t>() << std::endl;
+                //                        file << proxies::detail::type_id<typename mapping_t::func_type>() << std::endl;
+                //                        file << std::endl;
+                //                    });
+                //                });
+
+                proxies::detail::type_sets::for_each<proxies::detail::super_tag<facade_t>>([&]<typename super_t> {
+                    // proxies::detail::type_sets::for_each<proxies::detail::value_tag<super_t>>([&]<typename value_t> {
+                    proxies::detail::type_sets::for_each<proxies::detail::dispatch_tag<super_t>>([&]<typename mapping_t> {
+                        // file << typeid(value_t).name() << std::endl;
+                        file << typeid(mapping_t).name() << std::endl;
+                        // file << proxies::detail::type_id<value_t>() << std::endl;
+                        file << proxies::detail::type_id<mapping_t>() << std::endl;
+                        file << std::endl;
+                    });
+                    // });
+                });
+
+                // file.close();
+
+                //                std::ofstream file {"C:/Dev/wtf.txt"};
+                file << typeid(facade_t).name() << std::endl;
+                file << "values: " << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::value_tag<facade_t>>())).name() << std::endl;
+                file << "base: " << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::base_tag<facade_t>>())).name() << std::endl;
+                file << "super: " << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::super_tag<facade_t>>())).name() << std::endl;
+                file << "funcs: " << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::dispatch_tag<facade_t>>())).name() << std::endl;
+                file << std::endl;
+
+                proxies::detail::type_sets::for_each<proxies::detail::super_tag<facade_t>>([&]<typename super_facade_t> {
+                    file << "values: " << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::value_tag<super_facade_t>>())).name() << std::endl;
+                    file << "base: " << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::base_tag<super_facade_t>>())).name() << std::endl;
+                    file << "super: " << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::super_tag<super_facade_t>>())).name() << std::endl;
+                    file << "funcs: " << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::dispatch_tag<super_facade_t>>())).name() << std::endl;
+                    file << std::endl;
+                });
+                //
+                file.close();
+#endif
 
                 SPORE_PROXY_ASSERT(ptr != nullptr);
 

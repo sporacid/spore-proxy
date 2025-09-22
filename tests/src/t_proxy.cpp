@@ -405,6 +405,10 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         struct facade : proxy_facade<facade, facade_base1, facade_base2>
         {
+            constexpr facade()
+            {
+                proxies::detail::emplace_bases<0, facade, facade_base1, facade_base2>();
+            }
         };
 
         struct impl
@@ -423,10 +427,26 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
             }
         };
 
+        // proxies::detail::type_sets::emplace<proxies::detail::base_tag<facade>, facade_base1>();
+        // proxies::detail::type_sets::emplace<proxies::detail::base_tag<facade>, facade_base2>();
+        // proxies::detail::type_sets::emplace<proxies::detail::super_tag<facade_base1>, facade>();
+        // proxies::detail::type_sets::emplace<proxies::detail::super_tag<facade_base2>, facade>();
+//
+        // proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade>, impl>();
+        // proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_base1>, impl>();
+        // proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_base2>, impl>();
+
         bool flag1 = false;
         bool flag2 = false;
 
         proxy p = proxies::make_value<facade, impl>(flag1, flag2);
+
+        const auto* a1 = &p;
+
+        const auto* a2 = static_cast<facade*>(&p);
+        const auto* a3 = static_cast<proxy_base*>(&p);
+
+        constexpr auto gada  = sizeof(facade);
 
         p.func1();
 
