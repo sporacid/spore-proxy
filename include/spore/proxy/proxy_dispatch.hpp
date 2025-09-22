@@ -19,15 +19,6 @@
 
 namespace spore
 {
-    // clang-format off
-    // template <typename dispatch_t>
-    // concept any_proxy_dispatch = requires
-    // {
-    //     { dispatch_t::get_ptr(static_cast<std::size_t>(0), static_cast<std::size_t>(0)) } -> std::convertible_to<void*>;
-    //     { dispatch_t::set_ptr(static_cast<std::size_t>(0), static_cast<std::size_t>(0), static_cast<void*>(nullptr)) };
-    // };
-    // clang-format on
-
     template <template <typename...> typename unordered_map_t = std::unordered_map, typename mutex_t = proxies::detail::spin_lock>
     struct proxy_dispatch_dynamic
     {
@@ -135,7 +126,7 @@ namespace spore
             dispatch_ptr(void* ptr, const std::uint16_t checksum)
             {
                 _valid = static_cast<std::intptr_t>(true);
-                _checksum = static_cast<std::intptr_t>(checksum) & checksum_mask;
+                _checksum = static_cast<std::intptr_t>(checksum);// & checksum_mask;
                 _ptr = std::bit_cast<std::intptr_t>(ptr) & ptr_mask;
             }
 
@@ -166,9 +157,9 @@ namespace spore
             }
 
           private:
-            std::intptr_t _valid : 1;
-            std::intptr_t _checksum : 16;
-            std::intptr_t _ptr : 48;
+            std::uintptr_t _valid : 1;
+            std::uintptr_t _checksum : 16;
+            std::uintptr_t _ptr : 48;
         };
 
         static inline mutex_t _mutex;
@@ -199,109 +190,7 @@ namespace spore
         }
     };
 
-#if 1
-    struct proxy_dispatch_map
-    {
-        static void* get_ptr(const std::size_t func_id, const std::size_t type_id) noexcept
-        {
-            std::lock_guard lock {_mutex};
-            const dispatch_key dispatch_key {func_id, type_id};
-            const auto it_func = _func_map.find(dispatch_key);
-            return it_func != _func_map.end() ? it_func->second : nullptr;
-        }
-
-        static void set_ptr(const std::size_t func_id, const std::size_t type_id, void* ptr) noexcept
-        {
-            std::lock_guard lock {_mutex};
-            const dispatch_key dispatch_key {func_id, type_id};
-            _func_map.insert_or_assign(dispatch_key, ptr);
-        }
-
-      private:
-        struct dispatch_key
-        {
-            std::size_t func_id = 0;
-            std::size_t type_id = 0;
-
-            constexpr bool operator==(const dispatch_key& other) const
-            {
-                return std::tie(func_id, type_id) == std::tie(other.func_id, other.type_id);
-            }
-        };
-
-        struct dispatch_hash
-        {
-            constexpr std::size_t operator()(const dispatch_key& key) const
-            {
-                return key.func_id ^ (key.func_id + 0x9e3779b9 + (key.type_id << 6) + (key.type_id >> 2));
-            }
-        };
-
-        static inline std::recursive_mutex _mutex;
-        static inline std::unordered_map<dispatch_key, void*, dispatch_hash> _func_map;
-    };
-#endif
-
     using proxy_dispatch_default = SPORE_PROXY_DISPATCH_DEFAULT;
-#if 0
-    struct proxy_dispatch_map
-    {
-        static constexpr std::size_t height = SPORE_PROXY_DISPATCH_HEIGHT;
-        static constexpr std::size_t width = SPORE_PROXY_DISPATCH_WIDTH;
-
-        static void* get_dispatch(const std::size_t func_id, const std::size_t type_id) noexcept
-        {
-            const std::size_t func_index = func_id & width;
-            const std::size_t type_index = type_id & height;
-
-            SPORE_PROXY_ASSERT(_func_ptrs[func_index][type_index] == nullptr or _type_ids[func_index][type_index] == type_id);
-
-            return _func_ptrs[func_index][type_index];
-        }
-
-        static void set_dispatch(const std::size_t func_id, const std::size_t type_id, void* ptr) noexcept
-        {
-            const std::size_t func_index = func_id & width;
-            const std::size_t type_index = type_id & height;
-
-            SPORE_PROXY_ASSERT(_func_ptrs[func_index][type_index] == nullptr or _type_ids[func_index][type_index] == type_id);
-
-            _func_ptrs[func_index][type_index] = ptr;
-            _type_ids[func_index][type_index] = type_id;
-        }
-
-      private:
-        static inline std::size_t _type_ids[width][height];
-        static inline void* _func_ptrs[width][height];
-    };
-
-    namespace proxies
-    {
-        static inline proxy_dispatch_functional dispatch_instance;
-
-        template <any_proxy_dispatch dispatch_t>
-        void set_dispatch(dispatch_t dispatch)
-        {
-            if constexpr (std::is_same_v<dispatch_t, proxy_dispatch_functional>)
-            {
-                dispatch_instance = std::move(dispatch);
-            }
-            else
-            {
-                std::shared_ptr<dispatch_t> dispatch_ptr = std::make_shared<dispatch_t>(std::move(dispatch));
-                dispatch_instance = proxy_dispatch_functional {
-                    .get_dispatch = std::bind(&dispatch_t::get_dispatch, dispatch_ptr),
-                    .set_dispatch = std::bind(&dispatch_t::set_dispatch, dispatch_ptr),
-                };
-            }
-        }
-
-        inline any_proxy_dispatch auto& get_dispatch()
-        {
-            return dispatch_instance;
-        }
-    }
-#endif
 
     namespace proxies
     {
