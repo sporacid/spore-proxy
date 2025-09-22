@@ -159,7 +159,7 @@ namespace spore
             std::size_t get_proxy_offset()
             {
                 constexpr std::size_t dummy_value = 0x100000;
-                using proxy_t = proxy_view<facade_t>;
+                using proxy_t = proxy<facade_t, proxy_storage_invalid>;
                 const proxy_t* proxy = std::bit_cast<const proxy_t*>(dummy_value);
                 const facade_t* facade = static_cast<const facade_t*>(proxy);
                 const std::size_t offset = std::bit_cast<std::size_t>(facade) - dummy_value;
