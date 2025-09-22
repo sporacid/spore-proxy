@@ -3,6 +3,7 @@
 #include "proxy/proxy.h"
 
 #include <chrono>
+#include <format>
 #include <functional>
 #include <iostream>
 
@@ -16,15 +17,16 @@ namespace spore::benchmarks
 
     void output_results(const std::span<const result> results)
     {
-        std::cout << std::format("{:<15}{:<10}", "Name", "Seconds") << std::endl;
-        std::cout << std::format("{:-^25}", "") << std::endl;
+        std::cout << std::format("| {0:-^15} | {0:-^10} |", "") << std::endl;
+        std::cout << std::format("| {:<15} | {:>10} |", "Name", "Seconds") << std::endl;
+        std::cout << std::format("| {0:-^15} | {0:-^10} |", "") << std::endl;
 
         for (const result& result : results)
         {
-            std::cout << std::format("{:<14} | {:.4f}", result.name, result.time) << std::endl;
+            std::cout << std::format("| {:<15} | {:>10.4f} |", result.name, result.time) << std::endl;
         }
 
-        std::cout << std::format("{:-^25}", "") << std::endl;
+        std::cout << std::format("| {0:-^15} | {0:-^10} |", "") << std::endl;
     }
 
     template <typename func_t>
