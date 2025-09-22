@@ -4,12 +4,6 @@ namespace spore::proxies::tests
 {
     struct translation_unit_impl
     {
-        template <std::size_t value_v>
-        std::size_t act() const
-        {
-            return value_v;
-        }
-
         std::size_t some_work() const
         {
             return 0;
