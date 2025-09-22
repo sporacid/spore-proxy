@@ -1,6 +1,5 @@
 #pragma once
 
-#include "spore/proxy/proxy_dispatch.hpp"
 #include "spore/proxy/proxy_macros.hpp"
 #include "spore/proxy/proxy_storage.hpp"
 
@@ -13,6 +12,9 @@ namespace spore
 
     namespace proxies::detail
     {
+        template <typename facade_t>
+        consteval void add_facade();
+
         template <typename facade_t, typename... facades_t>
         consteval std::true_type is_proxy_facade_impl(const proxy_facade<facade_t, facades_t...>&)
         {

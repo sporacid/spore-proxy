@@ -1,5 +1,6 @@
 #pragma once
 
+#include "spore/proxy/detail/proxy_once.hpp"
 #include "spore/proxy/detail/proxy_type_id.hpp"
 #include "spore/proxy/detail/proxy_type_set.hpp"
 #include "spore/proxy/proxy_base.hpp"
@@ -200,20 +201,11 @@ namespace spore
                 }
             };
 
-            template <typename facade_t>
-            proxy_base& cast_facade_to_proxy(facade_t&);
-
-            template <typename facade_t>
-            proxy_base&& cast_facade_to_proxy(facade_t&&);
-
-            template <typename facade_t>
-            const proxy_base& cast_facade_to_proxy(const facade_t&);
-
             template <typename value_t, typename func_t, typename self_t, typename return_t, typename... args_t>
-            void* get_dispatch_ptr(const dispatch_mapping<func_t, self_t, return_t(args_t...)>) noexcept
+            void* get_func_ptr(const dispatch_mapping<func_t, self_t, return_t(args_t...)>) noexcept
             {
                 using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
-                static const auto func = [](void_t* ptr, args_t... args) -> return_t {
+                const auto func = [](void_t* ptr, args_t... args) -> return_t {
                     if constexpr (std::is_const_v<std::remove_reference_t<self_t>>)
                     {
                         return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t&&>(args)...);
@@ -234,12 +226,12 @@ namespace spore
             template <typename value_t, typename mapping_t>
             void add_value_mapping_once()
             {
-                static const bool once = [] {
-                    void* ptr = proxies::detail::get_dispatch_ptr<value_t>(mapping_t {});
+                static const once once = [] {
                     proxy_dispatch_map::set_dispatch(
-                        proxies::detail::type_id<mapping_t>(), proxies::detail::type_id<value_t>(), ptr);
-                    return true;
-                }();
+                        proxies::detail::type_id<mapping_t>(),
+                        proxies::detail::type_id<value_t>(),
+                        proxies::detail::get_func_ptr<value_t>(mapping_t {}));
+                };
 
                 (void) once;
             }
@@ -249,7 +241,7 @@ namespace spore
             {
                 proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
 
-                static const bool once = [] {
+                static const once once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::mapping_tag<facade_t>>([]<typename mapping_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -257,9 +249,7 @@ namespace spore
                     proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
                         proxies::detail::add_facade_value_once<base_facade_t, value_t>();
                     });
-
-                    return true;
-                }();
+                };
 
                 (void) once;
             }
@@ -269,7 +259,7 @@ namespace spore
             {
                 proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
 
-                static const bool once = [] {
+                static const once once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -281,9 +271,9 @@ namespace spore
                     });
 
                     return true;
-                }();
+                };
 
-                std::ignore = once;
+                (void) once;
             }
 
             template <typename facade_t>
