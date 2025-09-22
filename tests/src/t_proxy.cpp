@@ -1,6 +1,7 @@
 #include "catch2/catch_all.hpp"
 
 #include "spore/proxy/proxy.hpp"
+#include "spore/proxy/tests/t_templates.hpp"
 #include "spore/proxy/tests/t_thread.hpp"
 #include "spore/proxy/tests/t_translation_unit.hpp"
 
@@ -13,6 +14,10 @@
 #    define SPORE_PROXY_THREAD_COUNT 24
 #endif
 
+#ifndef SPORE_PROXY_ENABLE_THREAD_TEST
+#    define SPORE_PROXY_ENABLE_THREAD_TEST 1
+#endif
+
 namespace spore::tests
 {
     // clang-format off
@@ -23,26 +28,26 @@ namespace spore::tests
     };
     // clang-format on
 
-    struct facade_template : proxy_facade<facade_template>
-    {
-        template <typename tag_t>
-        void act()
-        {
-            constexpr auto func = [](auto& self) { self.template act<tag_t>(); };
-            proxies::dispatch(func, *this);
-        }
-    };
-
-    struct impl_template
-    {
-        std::set<std::type_index>& type_ids;
-
-        template <typename tag_t>
-        void act()
-        {
-            type_ids.emplace(typeid(tag_t));
-        }
-    };
+    //    struct facade_template : proxy_facade<facade_template>
+    //    {
+    //        template <typename tag_t>
+    //        void act()
+    //        {
+    //            constexpr auto func = [](auto& self) { self.template act<tag_t>(); };
+    //            proxies::dispatch(func, *this);
+    //        }
+    //    };
+    //
+    //    struct impl_template
+    //    {
+    //        std::set<std::type_index>& type_ids;
+    //
+    //        template <typename tag_t>
+    //        void act()
+    //        {
+    //            type_ids.emplace(typeid(tag_t));
+    //        }
+    //    };
 }
 
 TEST_CASE("spore::proxy", "[spore::proxy]")
@@ -447,20 +452,19 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("facade template")
     {
-        std::set<std::type_index> type_ids;
+        constexpr std::size_t result_count = 256;
 
-        proxy p = proxies::make_value<tests::facade_template, tests::impl_template>(type_ids);
+        proxy p = proxies::make_value<proxies::tests::templates::facade, proxies::tests::templates::impl>();
 
-        // clang-format off
-        struct tag1 {};
-        struct tag2 {};
-        // clang-format on
+        const auto test_result = [&]<std::size_t index_v> {
+            REQUIRE(index_v == p.act<index_v>());
+        };
 
-        p.act<tag1>();
-        p.act<tag2>();
+        const auto test_results = [&]<std::size_t... indices_v>(std::index_sequence<indices_v...>) {
+            (test_result.template operator()<indices_v>(), ...);
+        };
 
-        REQUIRE(type_ids.contains(typeid(tag1)));
-        REQUIRE(type_ids.contains(typeid(tag2)));
+        test_results(std::make_index_sequence<result_count>());
     }
 
     SECTION("facade across translation unit")
@@ -471,6 +475,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         REQUIRE(1 == proxies::tests::tu::some_other_work(p));
     }
 
+#if SPORE_PROXY_ENABLE_THREAD_TEST
     SECTION("facade across threads")
     {
         constexpr std::size_t thread_count = SPORE_PROXY_THREAD_COUNT;
@@ -523,4 +528,5 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
             }
         }
     }
+#endif
 }

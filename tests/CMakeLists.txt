@@ -15,6 +15,11 @@ target_include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+target_compile_options(
+  ${TARGET_NAME} PRIVATE
+  "$<$<CXX_COMPILER_ID:MSVC>:/bigobj>"
+)
+
 include(ProcessorCount)
 
 ProcessorCount(PROCESSOR_COUNT)

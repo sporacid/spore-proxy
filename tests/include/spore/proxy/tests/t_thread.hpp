@@ -25,56 +25,6 @@ namespace spore::proxies::tests::threads
 
     namespace detail
     {
-        //        constexpr std::size_t seed = 0x89541939a0560778;
-        //        constexpr std::size_t a = 0x26376def3dfa0c0b;
-        //        constexpr std::size_t c = 0x27f9fc91d887025c;
-        //
-        //        constexpr std::size_t next_random(const std::size_t state)
-        //        {
-        //            return (a * state + c);
-        //        }
-        //
-        //        template <std::size_t index_v>
-        //        struct random
-        //        {
-        //            static constexpr std::size_t value = next_random(random<index_v - 1>::value);
-        //        };
-        //
-        //        template <>
-        //        struct random<0>
-        //        {
-        //            static constexpr std::size_t value = seed;
-        //        };
-
-        //        template <std::size_t... Is>
-        //        constexpr auto to_array(std::index_sequence<Is...>) {
-        //            return std::array<std::size_t, sizeof...(Is)>{Is...};
-        //        }
-        //
-        //        template <std::size_t size_v>
-        //        constexpr std::array<std::size_t, size_v> shuffle_array() {
-        //            std::array<std::size_t, size_v> arr{};
-        //            for (std::size_t i = 0; i < size_v; ++i) arr[i] = i;
-        //
-        //            // Simple constexpr shuffle (Fisher-Yates)
-        //            for (std::size_t i = size_v - 1; i > 0; --i) {
-        //                std::size_t j = i % (i + 1); // deterministic fallback
-        //                std::swap(arr[i], arr[j]);
-        //            }
-        //            return arr;
-        //        }
-        //
-        //        // Step 3: Convert array to index_sequence
-        //        template <std::array<std::size_t, N> arr, std::size_t... Is>
-        //        constexpr auto to_index_sequence_impl(std::index_sequence<Is...>) {
-        //            return std::index_sequence<arr[Is]...>{};
-        //        }
-
-        //        template <std::size_t iteration_v, std::size_t... indices_v>
-        //        auto shuffle_index_sequence(std::index_sequence<indices_v...>)
-        //        {
-        //        }
-
         consteval std::size_t make_random(const std::size_t seed, const std::size_t round)
         {
             std::size_t value = seed + round * 0x9e3779b97f4a7c15;

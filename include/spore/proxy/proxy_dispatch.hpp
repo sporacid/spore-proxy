@@ -75,7 +75,7 @@ namespace spore
             }
         };
 
-        static inline std::mutex _mutex;
+        static inline std::recursive_mutex _mutex;
         static inline std::unordered_map<dispatch_key, void*, dispatch_hash> _func_map;
     };
 
