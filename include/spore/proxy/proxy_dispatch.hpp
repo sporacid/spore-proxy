@@ -130,7 +130,7 @@ namespace spore
             }
         }
 
-        any_proxy_dispatch auto& get_dispatch()
+        inline any_proxy_dispatch auto& get_dispatch()
         {
             return dispatch_instance;
         }

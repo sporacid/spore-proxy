@@ -1,6 +1,7 @@
 #include "catch2/catch_all.hpp"
 
 #include "spore/proxy/proxy.hpp"
+#include "spore/proxy/tests/t_translation_unit.hpp"
 
 #include <typeindex>
 
@@ -452,5 +453,13 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         REQUIRE(type_ids.contains(typeid(tag1)));
         REQUIRE(type_ids.contains(typeid(tag2)));
+    }
+
+    SECTION("facade across translation unit")
+    {
+        proxy p = proxies::tests::make_proxy();
+
+        REQUIRE(0 == proxies::tests::some_work(p));
+        REQUIRE(1 == proxies::tests::some_other_work(p));
     }
 }
