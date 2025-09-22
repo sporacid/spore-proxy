@@ -1,6 +1,7 @@
 #pragma once
 
 #include "spore/proxy/detail/proxy_once.hpp"
+#include "spore/proxy/detail/proxy_spin_lock.hpp"
 #include "spore/proxy/detail/proxy_type_id.hpp"
 #include "spore/proxy/detail/proxy_type_set.hpp"
 #include "spore/proxy/proxy_base.hpp"
@@ -32,17 +33,81 @@ namespace spore
     };
     // clang-format on
 
+    namespace proxies::detail
+    {
+
+    }
+
     struct proxy_dispatch_functional
     {
         std::function<void*(const std::size_t, const std::size_t)> get_dispatch;
         std::function<void(const std::size_t, const std::size_t, void*)> set_dispatch;
     };
 
+    struct proxy_dispatch_ptr
+    {
+        static constexpr std::intptr_t type_hash_mask = 0xffff000000000000ULL;
+        static constexpr std::intptr_t ptr_mask = 0x0000ffffffffffffULL;
+
+        proxy_dispatch_ptr(void* ptr, const std::uint16_t type_hash)
+        {
+            _ptr = std::bit_cast<std::intptr_t>(ptr) & ptr_mask;
+            _type_hash = static_cast<std::intptr_t>(type_hash) & type_hash_mask;
+        }
+
+        void* ptr() const noexcept
+        {
+            std::intptr_t ptr = _ptr;
+
+#if defined(__x86_64__) || defined(_M_X64)
+            constexpr std::intptr_t sign_bit = 1ULL << 47ULL;
+            constexpr std::intptr_t sign_extension_bits = 0xffff000000000000;
+
+            if (ptr & sign_bit)
+            {
+                ptr |= sign_extension_bits;
+            }
+#endif
+            return std::bit_cast<void*>(ptr);
+        }
+
+        std::uint16_t type_hash() const noexcept
+        {
+            return _type_hash & type_hash_mask;
+        }
+
+      private:
+        std::intptr_t _type_hash : 16;
+        std::intptr_t _ptr : 48;
+    };
+
+    template <template <typename...> typename unordered_map_t = std::unordered_map, typename mutex_t = proxies::detail::spin_lock>
+    struct proxy_dispatch_dynamic
+    {
+      private:
+        static inline unordered_map_t<std::size_t, proxy_dispatch_ptr, std::identity> _ptr_map;
+    };
+
+    template <std::size_t size_v, typename mutex_t = proxies::detail::spin_lock>
+    struct proxy_dispatch_static
+    {
+        static void* get_ptr(const std::size_t mapping_id, const std::size_t type_id) noexcept
+        {
+        }
+
+        static void set_ptr(const std::size_t mapping_id, const std::size_t type_id, void* ptr) noexcept
+        {
+        }
+
+      private:
+        static inline proxy_dispatch_ptr _ptr_map[size_v];
+    };
+
     struct proxy_dispatch_map
     {
         static void* get_dispatch(const std::size_t func_id, const std::size_t type_id) noexcept
         {
-            std::lock_guard lock{_mutex};
+            std::lock_guard lock {_mutex};
             const dispatch_key dispatch_key {func_id, type_id};
             const auto it_func = _func_map.find(dispatch_key);
             return it_func != _func_map.end() ? it_func->second : nullptr;
@@ -50,7 +115,7 @@ namespace spore
 
         static void set_dispatch(const std::size_t func_id, const std::size_t type_id, void* ptr) noexcept
         {
-            std::lock_guard lock{_mutex};
+            std::lock_guard lock {_mutex};
             const dispatch_key dispatch_key {func_id, type_id};
             _func_map.insert_or_assign(dispatch_key, ptr);
         }

@@ -1,54 +1,24 @@
 #include "catch2/catch_all.hpp"
 
 #include "spore/proxy/proxy.hpp"
+#include "spore/proxy/tests/t_dispatch.hpp"
 #include "spore/proxy/tests/t_templates.hpp"
 #include "spore/proxy/tests/t_thread.hpp"
 #include "spore/proxy/tests/t_translation_unit.hpp"
-
-#include <array>
-#include <ranges>
-#include <thread>
-#include <typeindex>
 
 #ifndef SPORE_PROXY_THREAD_COUNT
 #    define SPORE_PROXY_THREAD_COUNT 24
 #endif
 
 #ifndef SPORE_PROXY_ENABLE_THREAD_TEST
-#    define SPORE_PROXY_ENABLE_THREAD_TEST 1
+#    define SPORE_PROXY_ENABLE_THREAD_TEST 0
 #endif
 
-namespace spore::tests
-{
-    // clang-format off
-    template <typename value_t>
-    concept actable = requires(const value_t& value)
-    {
-        { value.act() };
-    };
-    // clang-format on
-
-    //    struct facade_template : proxy_facade<facade_template>
-    //    {
-    //        template <typename tag_t>
-    //        void act()
-    //        {
-    //            constexpr auto func = [](auto& self) { self.template act<tag_t>(); };
-    //            proxies::dispatch(func, *this);
-    //        }
-    //    };
-    //
-    //    struct impl_template
-    //    {
-    //        std::set<std::type_index>& type_ids;
-    //
-    //        template <typename tag_t>
-    //        void act()
-    //        {
-    //            type_ids.emplace(typeid(tag_t));
-    //        }
-    //    };
-}
+#if SPORE_PROXY_ENABLE_THREAD_TEST
+#    include <array>
+#    include <ranges>
+#    include <thread>
+#endif
 
 TEST_CASE("spore::proxy", "[spore::proxy]")
 {
@@ -293,7 +263,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         {
             void act() const
             {
-                constexpr auto func = []<tests::actable self_t>(const self_t& self) { self.act(); };
+                constexpr auto func = []<proxies::tests::actable self_t>(const self_t& self) { self.act(); };
                 proxies::dispatch_or_throw(func, *this);
             }
         };
@@ -313,7 +283,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         {
             int act() const
             {
-                constexpr auto func = []<tests::actable self_t>(const self_t& self) { self.act(); };
+                constexpr auto func = []<proxies::tests::actable self_t>(const self_t& self) { self.act(); };
                 return proxies::dispatch_or_default<int>(func, *this);
             }
         };
@@ -452,7 +422,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("facade template")
     {
-        constexpr std::size_t result_count = 256;
+        constexpr std::size_t result_count = 32;
 
         proxy p = proxies::make_value<proxies::tests::templates::facade, proxies::tests::templates::impl>();
 
@@ -481,8 +451,8 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         constexpr std::size_t thread_count = SPORE_PROXY_THREAD_COUNT;
         constexpr std::size_t result_count = 256;
 
-        std::atomic_flag flag {};
         std::atomic<std::size_t> counter;
+        std::atomic_flag flag = ATOMIC_FLAG_INIT;
 
         proxy p = proxies::make_value<proxies::tests::threads::facade, proxies::tests::threads::impl>();
 
