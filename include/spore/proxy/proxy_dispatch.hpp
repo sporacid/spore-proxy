@@ -253,7 +253,8 @@ namespace spore
             template <typename value_t, typename mapping_t>
             void add_value_mapping_once() noexcept
             {
-                const once<proxies::detail::once_tag<value_t, mapping_t>> once = [] {
+                using once_tag_t = proxies::detail::once_tag<value_t, mapping_t>;
+                static const once<once_tag_t> once = [] {
                     proxy_dispatch_map::set_dispatch(
                         proxies::detail::type_id<mapping_t>(),
                         proxies::detail::type_id<value_t>(),
@@ -266,10 +267,12 @@ namespace spore
             template <typename facade_t, typename value_t>
             void add_facade_value_once() noexcept
             {
+                using once_tag_t = proxies::detail::once_tag<facade_t, value_t>;
+
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
 
-                const once<proxies::detail::once_tag<facade_t, value_t>> once = [] {
+                static const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::mapping_tag<facade_t>>([]<typename mapping_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -285,10 +288,12 @@ namespace spore
             template <typename facade_t, typename mapping_t>
             void add_facade_mapping_once() noexcept
             {
+                using once_tag_t = proxies::detail::once_tag<facade_t, mapping_t>;
+
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
 
-                const once<proxies::detail::once_tag<facade_t, mapping_t>> once = [] {
+                static const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
