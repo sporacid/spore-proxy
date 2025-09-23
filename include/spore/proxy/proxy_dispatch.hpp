@@ -19,25 +19,162 @@
 #    define SPORE_PROXY_DISPATCH_DEFAULT proxy_dispatch_static<0xffff>
 #endif
 
-#include <fstream>
+// #include <fstream>
+//
+// #pragma section("_spore_proxy$a", read)
+// #pragma section("_spore_proxy$b", read)
+// #pragma section("_spore_proxy$c", read)
 
 namespace spore
 {
+    namespace proxies::detail
+    {
+        template </*typename facade_t, */ std::size_t index_v, typename func_t, typename self_t, typename signature_t>
+        struct dispatch_mapping;
+
+        template </*typename facade_t, */ std::size_t index_v, typename func_t, typename self_t, typename return_t, typename... args_t>
+        struct dispatch_mapping<index_v, func_t, self_t, return_t(args_t...)>
+        {
+            // using facade_type = facade_t;
+
+            template <typename value_t>
+            static constexpr auto functor = [](void* ptr, args_t... args) -> return_t {
+                if constexpr (std::is_const_v<std::remove_reference_t<self_t>>)
+                {
+                    return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t&&>(args)...);
+                }
+                else if constexpr (std::is_lvalue_reference_v<self_t>)
+                {
+                    return func_t {}(*static_cast<value_t*>(ptr), std::forward<args_t&&>(args)...);
+                }
+                else
+                {
+                    return func_t {}(std::move(*static_cast<value_t*>(ptr)), std::forward<args_t&&>(args)...);
+                }
+            };
+        };
+
+        template <typename value_t, typename mapping_t>
+        void* get_mapping_ptr() noexcept
+        {
+            constexpr auto unwrap_mapping = []</*typename facade_t, */ std::size_t index_v, typename func_t, typename self_t, typename return_t, typename... args_t>(const dispatch_mapping</*facade_t, */ index_v, func_t, self_t, return_t(args_t...)>) {
+                using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
+                const auto func = [](void_t* ptr, args_t... args) -> return_t {
+                    if constexpr (std::is_const_v<std::remove_reference_t<self_t>>)
+                    {
+                        return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t&&>(args)...);
+                    }
+                    else if constexpr (std::is_lvalue_reference_v<self_t>)
+                    {
+                        return func_t {}(*static_cast<value_t*>(ptr), std::forward<args_t&&>(args)...);
+                    }
+                    else
+                    {
+                        return func_t {}(std::move(*static_cast<value_t*>(ptr)), std::forward<args_t&&>(args)...);
+                    }
+                };
+
+                return reinterpret_cast<void*>(+func);
+            };
+
+            return unwrap_mapping(mapping_t {});
+        }
+
+#if 0
+        struct linker_key
+        {
+            std::size_t mapping_id = 0;
+            std::size_t type_id = 0;
+
+            bool valid() const noexcept
+            {
+                return mapping_id > 0 and type_id > 0;
+            }
+
+            constexpr bool operator==(const linker_key& other) const
+            {
+                return std::tie(mapping_id, type_id) == std::tie(other.mapping_id, other.type_id);
+            }
+        };
+
+        struct linker_hash
+        {
+            constexpr std::size_t operator()(const linker_key& key) const
+            {
+                return proxies::detail::hash_combine(key.type_id, key.mapping_id);
+            }
+        };
+
+        struct linker_entry
+        {
+            linker_key key;
+            void* ptr;
+
+            bool valid() const noexcept
+            {
+                return key.valid() and ptr != nullptr;
+            }
+        };
+
+        __declspec(allocate("_spore_proxy$a")) linker_entry entry_begin {
+            .key = {
+                .mapping_id = 0,
+                .type_id = 0,
+            },
+            .ptr = nullptr,
+        };
+
+        template <typename value_t, typename mapping_t>
+        __declspec(allocate("_spore_proxy$b")) linker_entry entry {
+            .key = {
+                .mapping_id = 0,
+                .type_id = 0,
+            },
+            .ptr = nullptr,
+            // .key = {
+            //     .mapping_id = typeid(mapping_t).hash_code(),
+            //     .type_id = typeid(value_t).hash_code(),
+            // },
+            // .ptr = (void*) +mapping_t::template functor<value_t>,
+            // .key = {
+            //     .mapping_id = proxies::detail::type_id<mapping_t>(),
+            //     .type_id = proxies::detail::type_id<value_t>(),
+            // },
+            // .ptr = proxies::detail::get_mapping_ptr<value_t, mapping_t>(),
+        };
+
+        __declspec(allocate("_spore_proxy$c")) linker_entry entry_end {
+            .key = {
+                .mapping_id = 0,
+                .type_id = 0,
+            },
+            .ptr = nullptr,
+        };
+
+        //        template <typename value_t, typename mapping_t>
+        //        struct force_emit {
+        //            static linker_entry& ref() {
+        //                return entry<value_t, mapping_t>;
+        //            }
+        //        };
+#endif
+    }
+
     template <template <typename...> typename unordered_map_t = std::unordered_map, typename mutex_t = proxies::detail::spin_lock>
     struct proxy_dispatch_dynamic
     {
         static void* get_ptr(const std::size_t mapping_id, const std::size_t type_id) noexcept
         {
-            const std::lock_guard lock {_mutex};
             const dispatch_key dispatch_key {mapping_id, type_id};
+            const std::lock_guard lock {_mutex};
             const auto it_ptr = _ptr_map.find(dispatch_key);
             return it_ptr != _ptr_map.end() ? it_ptr->second : nullptr;
         }
 
         static void set_ptr(const std::size_t mapping_id, const std::size_t type_id, void* ptr) noexcept
         {
-            const std::lock_guard lock {_mutex};
             const dispatch_key dispatch_key {mapping_id, type_id};
+            const std::lock_guard lock {_mutex};
             _ptr_map.insert_or_assign(dispatch_key, ptr);
         }
 
@@ -97,7 +234,7 @@ namespace spore
                     return ptr_data.ptr();
                 }
 
-                ++seed_index;
+                dispatch_index = (dispatch_id ^ _seeds[seed_index++]) % size_v;
             } while (seed_index < std::size(_seeds));
 
             return nullptr;
@@ -134,7 +271,7 @@ namespace spore
                     return;
                 }
 
-                ++seed_index;
+                dispatch_index = (dispatch_id ^ _seeds[seed_index++]) % size_v;
             } while (seed_index < std::size(_seeds));
 
             SPORE_PROXY_ASSERT(false);
@@ -217,6 +354,24 @@ namespace spore
         }
     };
 
+#if 0
+    struct proxy_dispatch_linker
+    {
+        static inline std::unordered_map<proxies::detail::linker_key, void*, proxies::detail::linker_hash> _map;
+
+        static void initialize()
+        {
+            auto begin = reinterpret_cast<proxies::detail::linker_entry*>(&proxies::detail::entry_begin) + 1;
+            auto end = reinterpret_cast<proxies::detail::linker_entry*>(&proxies::detail::entry_end);
+
+            for (auto it = begin; it != end; ++it)
+            {
+                const proxies::detail::linker_entry& entry = *it;
+                _map.emplace(entry.key, entry.ptr);
+            }
+        }
+    };
+
     struct proxy_dispatch_map
     {
         static void* get_ptr(const std::size_t mapping_id, const std::size_t type_id) noexcept
@@ -260,7 +415,7 @@ namespace spore
         static inline std::recursive_mutex _mutex;
         static inline std::unordered_map<dispatch_key, void*, dispatch_hash> _func_map;
     };
-
+#endif
 #if 0
     template <std::size_t size_v>
     struct proxy_dispatch_static2
@@ -394,8 +549,8 @@ namespace spore
     };
 #endif
 
-    // using proxy_dispatch_default = SPORE_PROXY_DISPATCH_DEFAULT;
-    using proxy_dispatch_default = proxy_dispatch_map;
+    using proxy_dispatch_default = SPORE_PROXY_DISPATCH_DEFAULT;
+
     namespace proxies
     {
         namespace detail
@@ -423,12 +578,6 @@ namespace spore
                 {
                 };
             }
-
-            template </*typename facade_t, */ std::size_t index_v, typename func_t, typename self_t, typename signature_t>
-            struct dispatch_mapping
-            {
-                // using facade_type = facade_t;
-            };
 
             template <typename func_t, typename return_t>
             struct dispatch_or_throw
@@ -465,6 +614,7 @@ namespace spore
                 }
             };
 
+#if 0
             template <typename value_t, typename mapping_t>
             void* get_mapping_ptr() noexcept
             {
@@ -490,6 +640,7 @@ namespace spore
 
                 return unwrap_mapping(mapping_t {});
             }
+#endif
 
             template <typename facade_t>
             consteval void add_facade()
@@ -519,14 +670,41 @@ namespace spore
                 using dispatch_t = proxy_dispatch_default;
                 using once_tag_t = proxies::detail::once_tag<value_t, mapping_t>;
 
-                const once<once_tag_t> once = [] {
+                //                __declspec(allocate("_spore_proxy$b")) static linker_entry entry {
+                //                    .key = {
+                //                        .mapping_id = proxies::detail::type_id<mapping_t>(),
+                //                        .type_id = proxies::detail::type_id<value_t>(),
+                //                    },
+                //                    .ptr = proxies::detail::get_mapping_ptr<value_t, mapping_t>(),
+                //                };
+                //
+                //                [[maybe_unused]] auto& force_emit = entry;
+
+                //                proxies::detail::entry<value_t, mapping_t> = {
+                //                    .key = {
+                //                        .mapping_id = proxies::detail::type_id<mapping_t>(),
+                //                        .type_id = proxies::detail::type_id<value_t>(),
+                //                    },
+                //                    .ptr = proxies::detail::get_mapping_ptr<value_t, mapping_t>(),
+                //                };
+                //
+                // [[maybe_unused]] auto& force_emit = proxies::detail::entry<value_t, mapping_t>;
+
+                // void(proxies::detail::entry<value_t, mapping_t>);
+                // proxies::detail::entry<value_t, mapping_t> = {
+                //     .key = {
+                //         .mapping_id = proxies::detail::type_id<mapping_t>(),
+                //         .type_id = proxies::detail::type_id<value_t>(),
+                //     },
+                //     .ptr = proxies::detail::get_mapping_ptr<value_t, mapping_t>(),
+                // };
+
+                [[maybe_unused]] static const once<once_tag_t> once = [] {
                     dispatch_t::set_ptr(
                         proxies::detail::type_id<mapping_t>(),
                         proxies::detail::type_id<value_t>(),
                         proxies::detail::get_mapping_ptr<value_t, mapping_t>());
                 };
-
-                (void) once;
             }
 
             template <typename facade_t, typename value_t>
@@ -537,7 +715,7 @@ namespace spore
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
 
-                const once<once_tag_t> once = [] {
+                [[maybe_unused]] static const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::mapping_tag<facade_t>>([]<typename mapping_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -558,7 +736,7 @@ namespace spore
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
 
-                const once<once_tag_t> once = [] {
+                [[maybe_unused]] static const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -573,17 +751,16 @@ namespace spore
                 (void) once;
             }
 
-            static inline std::recursive_mutex _mutex;
+            // static inline std::recursive_mutex _mutex;
             // static inline std::ofstream _file_ {"C:/Dev/wtf.txt"};
-//
-//
-//            template <typename value_t>
-//            std::string function_name()
-//            {
-//                constexpr std::source_location location = std::source_location::current();
-//                return location.function_name();
-//            }
-
+            //
+            //
+            //            template <typename value_t>
+            //            std::string function_name()
+            //            {
+            //                constexpr std::source_location location = std::source_location::current();
+            //                return location.function_name();
+            //            }
 
             template <typename return_t, typename func_t, typename self_t, typename... args_t>
             /*constexpr*/ return_t dispatch_impl(const func_t&, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
@@ -598,7 +775,7 @@ namespace spore
                 //     _file_ << proxies::detail::type_id<mapping_t>() << std::endl;
                 //     _file_ << TYPEID(mapping_t).id << std::endl;
                 //     _file_ << "  " << typeid(mapping_t).name() << std::endl;
-//
+                //
                 // }
 
                 static_assert(std::is_empty_v<func_t>);
@@ -642,3 +819,29 @@ namespace spore
         }
     }
 }
+
+// #pragma init_seg(lib)
+//
+// namespace spore::proxies::detail
+//{
+//     struct init
+//     {
+//         init()
+//         {
+//             proxies::detail::type_sets::for_each<proxies::detail::facade_tag>([]<typename facade_t> {
+//                 proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
+//                     proxies::detail::type_sets::for_each<proxies::detail::mapping_tag<facade_t>>([]<typename mapping_t> {
+//                         proxy_dispatch_default::set_ptr(
+//                             proxies::detail::type_id<mapping_t>(),
+//                             proxies::detail::type_id<value_t>(),
+//                             proxies::detail::get_mapping_ptr<value_t, mapping_t>());
+//                     });
+//                 });
+//             });
+//
+//             std::atomic_thread_fence(std::memory_order::release);
+//         }
+//     };
+//
+//     static init run_before_main;
+// }

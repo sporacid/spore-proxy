@@ -15,6 +15,12 @@ function(add_benchmark_target TARGET_NAME DISPATCH_TYPE)
     SPORE_PROXY_DISPATCH_DEFAULT=${DISPATCH_TYPE}
   )
 
+  target_compile_options(
+    ${TARGET_NAME} PRIVATE
+    "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/OPT:NOREF>"
+    "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/OPT:NOICF>"
+  )
+
   target_link_libraries(
     ${TARGET_NAME} PRIVATE
     ${PROJECT_NAME}.lib
