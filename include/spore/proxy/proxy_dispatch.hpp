@@ -1,5 +1,6 @@
 #pragma once
 
+#include "spore/proxy/detail/proxy_counter.hpp"
 #include "spore/proxy/detail/proxy_no_lock.hpp"
 #include "spore/proxy/detail/proxy_once.hpp"
 #include "spore/proxy/detail/proxy_spin_lock.hpp"
@@ -17,6 +18,8 @@
 #ifndef SPORE_PROXY_DISPATCH_DEFAULT
 #    define SPORE_PROXY_DISPATCH_DEFAULT proxy_dispatch_static<0xffff>
 #endif
+
+#include <fstream>
 
 namespace spore
 {
@@ -227,6 +230,9 @@ namespace spore
         static void set_ptr(const std::size_t mapping_id, const std::size_t type_id, void* ptr) noexcept
         {
             std::lock_guard lock {_mutex};
+
+            // _file_ << mapping_id << " " << type_id << " " << ptr << std::endl;
+
             const dispatch_key dispatch_key {mapping_id, type_id};
             _func_map.insert_or_assign(dispatch_key, ptr);
         }
@@ -418,7 +424,7 @@ namespace spore
                 };
             }
 
-            template </*typename facade_t, */typename func_t, typename self_t, typename signature_t>
+            template </*typename facade_t, */ std::size_t index_v, typename func_t, typename self_t, typename signature_t>
             struct dispatch_mapping
             {
                 // using facade_type = facade_t;
@@ -462,7 +468,7 @@ namespace spore
             template <typename value_t, typename mapping_t>
             void* get_mapping_ptr() noexcept
             {
-                constexpr auto unwrap_mapping = []</*typename facade_t, */typename func_t, typename self_t, typename return_t, typename... args_t>(const dispatch_mapping</*facade_t, */func_t, self_t, return_t(args_t...)>) {
+                constexpr auto unwrap_mapping = []</*typename facade_t, */ std::size_t index_v, typename func_t, typename self_t, typename return_t, typename... args_t>(const dispatch_mapping</*facade_t, */ index_v, func_t, self_t, return_t(args_t...)>) {
                     using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
                     const auto func = [](void_t* ptr, args_t... args) -> return_t {
                         if constexpr (std::is_const_v<std::remove_reference_t<self_t>>)
@@ -513,7 +519,7 @@ namespace spore
                 using dispatch_t = proxy_dispatch_default;
                 using once_tag_t = proxies::detail::once_tag<value_t, mapping_t>;
 
-                static const once<once_tag_t> once = [] {
+                const once<once_tag_t> once = [] {
                     dispatch_t::set_ptr(
                         proxies::detail::type_id<mapping_t>(),
                         proxies::detail::type_id<value_t>(),
@@ -531,7 +537,7 @@ namespace spore
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
 
-                static const once<once_tag_t> once = [] {
+                const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::mapping_tag<facade_t>>([]<typename mapping_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -552,7 +558,7 @@ namespace spore
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
 
-                static const once<once_tag_t> once = [] {
+                const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -567,16 +573,38 @@ namespace spore
                 (void) once;
             }
 
+            static inline std::recursive_mutex _mutex;
+            static inline std::ofstream _file_ {"C:/Dev/wtf.txt"};
+//
+//
+//            template <typename value_t>
+//            std::string function_name()
+//            {
+//                constexpr std::source_location location = std::source_location::current();
+//                return location.function_name();
+//            }
+
+
             template <typename return_t, typename func_t, typename self_t, typename... args_t>
-            constexpr return_t dispatch_impl(const func_t&, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
+            /*constexpr*/ return_t dispatch_impl(const func_t&, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
             {
                 using facade_t = std::decay_t<self_t>;
                 // using dispatch_t = typename facade_t::dispatch_type;
                 using dispatch_t = proxy_dispatch_default;
-                using mapping_t = proxies::detail::dispatch_mapping</*facade_t, */func_t, self_t, return_t(args_t...)>;
+                using mapping_t = proxies::detail::dispatch_mapping</*facade_t, */ proxies::detail::counter<>, func_t, self_t, return_t(args_t...)>;
+
+                {
+                    std::lock_guard lock {_mutex};
+                    _file_ << proxies::detail::type_id<mapping_t>() << std::endl;
+                    _file_ << TYPEID(mapping_t).id << std::endl;
+                    _file_ << "  " << typeid(mapping_t).name() << std::endl;
+
+                }
 
                 static_assert(std::is_empty_v<func_t>);
                 static_assert(std::is_empty_v<facade_t>);
+
+                // std::lock_guard lock {_mutex};
 
                 proxies::detail::add_facade_mapping_once<facade_t, mapping_t>();
 

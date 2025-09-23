@@ -455,12 +455,10 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         constexpr std::size_t result_count = 256;
 
         std::atomic_flag flag = ATOMIC_FLAG_INIT;
+        std::atomic<std::size_t> counter;
+        std::atomic<std::size_t> results[thread_count][result_count] {};
 
         proxy p = proxies::make_value<proxies::tests::threads::facade, proxies::tests::threads::impl>();
-
-        std::mutex mutex;
-        std::size_t thread_counter;
-        std::size_t results[thread_count][result_count] {};
 
         const auto make_thread = [&]<std::size_t... indices_v>(std::index_sequence<indices_v...>) {
             return std::thread {
@@ -469,18 +467,13 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
                     {
                     }
 
-                    std::size_t thread_results[result_count] {};
+                    const std::size_t thread_index = counter++;
 
                     const auto set_result = [&]<std::size_t index_v> {
-                        thread_results[index_v] = p.act<index_v>();
+                        results[thread_index][index_v] = p.act<index_v>();
                     };
 
                     (set_result.template operator()<indices_v>(), ...);
-
-                    std::lock_guard lock{mutex};
-
-                    const std::size_t thread_index = thread_counter++;
-                    std::copy(std::begin(thread_results), std::end(thread_results), std::begin(results[thread_index]));
                 },
             };
         };
@@ -499,9 +492,13 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         std::ranges::for_each(threads, [](std::thread& thread) { thread.join(); });
 
-#if 0
-        std::ofstream file {"C:/Dev/wtf.txt"};
+        // std::ofstream file {"C:/Dev/wtf.txt"};
 
+        // file << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::value_tag<proxies::tests::threads::facade>>())).name() << std::endl;
+        // file << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::base_tag<proxies::tests::threads::facade>>())).name() << std::endl;
+        // file << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::mapping_tag<proxies::tests::threads::facade>>())).name() << std::endl;
+
+#    if 0
         for (std::size_t thread_index = 0; thread_index < thread_count; ++thread_index)
         {
             for (std::size_t result_index = 0; result_index < result_count; ++result_index)
@@ -510,8 +507,8 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
             }
         }
 
-        file.close();
-#endif
+#    endif
+        // file.close();
 
         for (std::size_t thread_index = 0; thread_index < thread_count; ++thread_index)
         {

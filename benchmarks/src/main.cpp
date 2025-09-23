@@ -1,6 +1,3 @@
-#undef SPORE_PROXY_DISPATCH_DEFAULT
-#define SPORE_PROXY_DISPATCH_DEFAULT spore::proxy_dispatch_static<0xffff>
-
 #include "spore/proxy/proxy.hpp"
 
 #include "proxy/proxy.h"
