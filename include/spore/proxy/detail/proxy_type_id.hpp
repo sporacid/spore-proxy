@@ -2,6 +2,7 @@
 
 #include "spore/proxy/detail/proxy_hash.hpp"
 
+#include <atomic>
 #include <bit>
 #include <source_location>
 
@@ -171,22 +172,26 @@ namespace spore::proxies::detail
 // Macro helper pour capturer le type à la ligne exacte
 #    define SPORE_PROXY_TYPE_ID(T) ([]() consteval { return spore::proxies::detail::type_capture<T> {}.id; }())
 
-        template <typename value_t>
-        consteval std::size_t type_id()
-        {
-            return type_capture<value_t> {}.id;
-            // constexpr auto self = &type_id<value_t>;
-            // return std::bit_cast<std::size_t>(&type_id<value_t>);
-            // constexpr std::source_location location = std::source_location::current();
-            // constexpr std::size_t hash = proxies::detail::hash_string(location.function_name());
-            // return static_cast<std::size_t>(hash);
-        }
-#else
     template <typename value_t>
-    constexpr std::size_t type_id()
+    consteval std::size_t type_id()
     {
+        return type_capture<value_t> {}.id;
         // constexpr auto self = &type_id<value_t>;
-        return std::bit_cast<std::size_t>(&type_id<value_t>);
+        // return std::bit_cast<std::size_t>(&type_id<value_t>);
+        // constexpr std::source_location location = std::source_location::current();
+        // constexpr std::size_t hash = proxies::detail::hash_string(location.function_name());
+        // return static_cast<std::size_t>(hash);
+    }
+#else
+    inline std::atomic<std::size_t> type_id_counter;
+
+    template <typename value_t>
+    std::size_t type_id()
+    {
+        static std::size_t value = type_id_counter++;
+        return value;
+        // constexpr auto self = &type_id<value_t>;
+        // return std::bit_cast<std::size_t>(&type_id<value_t>);
         // constexpr std::source_location location = std::source_location::current();
         // constexpr std::size_t hash = proxies::detail::hash_string(location.function_name());
         // return static_cast<std::size_t>(hash);

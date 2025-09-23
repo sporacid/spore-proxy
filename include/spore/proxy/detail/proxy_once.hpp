@@ -1,6 +1,6 @@
 #pragma once
 
- // #include <mutex>
+#include <mutex>
 
 namespace spore::proxies::detail
 {
@@ -10,9 +10,9 @@ namespace spore::proxies::detail
         template <typename func_t>
         once(func_t&& func)
         {
-            func();
+            // func();
 
-            // std::call_once(_once_flag, std::forward<func_t>(func));
+            std::call_once(_once_flag, std::forward<func_t>(func));
         }
 
         once(const once&) = delete;
@@ -21,7 +21,7 @@ namespace spore::proxies::detail
         once& operator=(const once&) = delete;
         once& operator=(once&&) = delete;
 
-        // private:
-        //   static inline std::once_flag _once_flag;
+        private:
+          static inline std::once_flag _once_flag;
     };
 }
