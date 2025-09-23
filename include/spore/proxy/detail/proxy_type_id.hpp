@@ -50,7 +50,7 @@ namespace spore::proxies::detail
         // constexpr std::size_t hash = proxies::detail::hash_string(location.function_name());
         // return static_cast<std::size_t>(hash);
     }
-#elif 1
+#elif 0
 
     template <typename T>
     consteval auto type_signature(const std::source_location loc = std::source_location::current())
@@ -169,13 +169,14 @@ namespace spore::proxies::detail
     };
 
 // Macro helper pour capturer le type à la ligne exacte
-#    define TYPEID(T) []() consteval { return type_capture<T> {}.id; }()
+#    define SPORE_PROXY_TYPE_ID(T) ([]() consteval { return spore::proxies::detail::type_capture<T> {}.id; }())
 
         template <typename value_t>
-        constexpr std::size_t type_id()
+        consteval std::size_t type_id()
         {
+            return type_capture<value_t> {}.id;
             // constexpr auto self = &type_id<value_t>;
-            return std::bit_cast<std::size_t>(&type_id<value_t>);
+            // return std::bit_cast<std::size_t>(&type_id<value_t>);
             // constexpr std::source_location location = std::source_location::current();
             // constexpr std::size_t hash = proxies::detail::hash_string(location.function_name());
             // return static_cast<std::size_t>(hash);

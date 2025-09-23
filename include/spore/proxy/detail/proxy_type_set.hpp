@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <typeindex>
 
 namespace spore::proxies::detail
 {
@@ -63,11 +64,15 @@ namespace spore::proxies::detail
         struct contains;
 
         template <typename value_t>
-        struct contains<value_t> : std::false_type {};
+        struct contains<value_t> : std::false_type
+        {
+        };
 
         template <typename value_t, typename first_t, typename... rest_t>
         struct contains<value_t, first_t, rest_t...>
-            : std::conditional_t<std::is_same_v<value_t, first_t>, std::true_type, contains<value_t, rest_t...>> {};
+            : std::conditional_t<std::is_same_v<value_t, first_t>, std::true_type, contains<value_t, rest_t...>>
+        {
+        };
 
         template <typename value_t, typename... values_t>
         consteval bool pack_contains()
@@ -77,25 +82,30 @@ namespace spore::proxies::detail
 #elif 0
 
         template <typename value_t>
-        consteval bool pack_contains() {
+        consteval bool pack_contains()
+        {
             return false;
         }
         template <typename value_t, typename first_t, typename... rest_t>
-        consteval bool pack_contains() {
-            if constexpr (std::is_same_v<value_t, first_t>) {
+        consteval bool pack_contains()
+        {
+            if constexpr (std::is_same_v<value_t, first_t>)
+            {
                 return true;
-            } else {
+            }
+            else
+            {
                 return pack_contains<value_t, rest_t...>();
             }
         }
-#elif 0
+#elif 1
         template <typename value_t>
-        consteval void wtf(){}
+        consteval void wtf() {}
 
         template <typename value_t, typename... values_t>
         consteval bool pack_contains()
         {
-            constexpr auto& type_id = typeid(value_t);
+            constexpr const std::type_index& type_id = typeid(value_t);
 
             decltype(type_id) type_ids[] {&typeid(values_t)...};
             std::ranges::sort(type_ids);
@@ -108,12 +118,21 @@ namespace spore::proxies::detail
         consteval bool pack_contains()
         {
             constexpr std::size_t type_id = proxies::detail::type_id<value_t>();
-
-            std::array<std::size_t, sizeof...(values_t)> type_ids {proxies::detail::type_id<values_t>()...};
-            std::ranges::sort(type_ids);
+            constexpr std::array type_ids = [] {
+                std::array<std::size_t, sizeof...(values_t)> type_ids {proxies::detail::type_id<values_t>()...};
+                std::ranges::sort(type_ids);
+                return type_ids;
+            }();
 
             const auto it_type_id = std::ranges::lower_bound(type_ids, type_id);
             return it_type_id != type_ids.end() and * it_type_id == type_id;
+            //            constexpr std::size_t type_id = proxies::detail::type_id<value_t>();
+            //
+            //            std::array<std::size_t, sizeof...(values_t)> type_ids {proxies::detail::type_id<values_t>()...};
+            //            std::ranges::sort(type_ids);
+            //
+            //            const auto it_type_id = std::ranges::lower_bound(type_ids, type_id);
+            //            return it_type_id != type_ids.end() and * it_type_id == type_id;
         }
 #endif
 #if 1
@@ -148,24 +167,26 @@ namespace spore::proxies::detail
         struct unique_impl;
 
         template <typename... Accumulated>
-        struct unique_impl<type_set<Accumulated...>, type_set<>> {
+        struct unique_impl<type_set<Accumulated...>, type_set<>>
+        {
             using type = type_set<Accumulated...>;
         };
 
         template <typename... Accumulated, typename Head, typename... Tail>
-        struct unique_impl<type_set<Accumulated...>, type_set<Head, Tail...>> {
+        struct unique_impl<type_set<Accumulated...>, type_set<Head, Tail...>>
+        {
             using type = std::conditional_t<
                 pack_contains<Head, Accumulated...>(),
                 typename unique_impl<type_set<Accumulated...>, type_set<Tail...>>::type,
-                typename unique_impl<type_set<Accumulated..., Head>, type_set<Tail...>>::type
-                >;
+                typename unique_impl<type_set<Accumulated..., Head>, type_set<Tail...>>::type>;
         };
 
         template <typename Set>
         struct unique;
 
         template <typename... Ts>
-        struct unique<type_set<Ts...>> {
+        struct unique<type_set<Ts...>>
+        {
             using type = typename unique_impl<type_set<>, type_set<Ts...>>::type;
         };
 #endif

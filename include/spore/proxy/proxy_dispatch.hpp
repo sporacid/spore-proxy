@@ -574,7 +574,7 @@ namespace spore
             }
 
             static inline std::recursive_mutex _mutex;
-            static inline std::ofstream _file_ {"C:/Dev/wtf.txt"};
+            // static inline std::ofstream _file_ {"C:/Dev/wtf.txt"};
 //
 //
 //            template <typename value_t>
@@ -593,13 +593,13 @@ namespace spore
                 using dispatch_t = proxy_dispatch_default;
                 using mapping_t = proxies::detail::dispatch_mapping</*facade_t, */ proxies::detail::counter<>, func_t, self_t, return_t(args_t...)>;
 
-                {
-                    std::lock_guard lock {_mutex};
-                    _file_ << proxies::detail::type_id<mapping_t>() << std::endl;
-                    _file_ << TYPEID(mapping_t).id << std::endl;
-                    _file_ << "  " << typeid(mapping_t).name() << std::endl;
-
-                }
+                // {
+                //     std::lock_guard lock {_mutex};
+                //     _file_ << proxies::detail::type_id<mapping_t>() << std::endl;
+                //     _file_ << TYPEID(mapping_t).id << std::endl;
+                //     _file_ << "  " << typeid(mapping_t).name() << std::endl;
+//
+                // }
 
                 static_assert(std::is_empty_v<func_t>);
                 static_assert(std::is_empty_v<facade_t>);
