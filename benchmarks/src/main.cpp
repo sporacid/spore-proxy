@@ -1,3 +1,6 @@
+#undef SPORE_PROXY_DISPATCH_DEFAULT
+#define SPORE_PROXY_DISPATCH_DEFAULT spore::proxy_dispatch_static<0xffff>
+
 #include "spore/proxy/proxy.hpp"
 
 #include "proxy/proxy.h"
@@ -45,15 +48,16 @@ namespace spore::benchmarks
         };
     }
 
-    int do_work()
+    std::size_t do_work(const std::size_t size)
     {
-        int r = 0;
-        for (int i = 0; i < 10; i++)
+        std::size_t result = 0;
+
+        for (std::size_t index = 0; index < size; index++)
         {
-            r += i;
+            result += index;
         }
 
-        return r;
+        return result;
     }
 
     namespace virtual_
@@ -61,14 +65,14 @@ namespace spore::benchmarks
         struct facade
         {
             virtual ~facade() = default;
-            virtual int work() const = 0;
+            virtual std::size_t work(std::size_t) const = 0;
         };
 
         struct impl : facade
         {
-            int work() const override
+            std::size_t work(const std::size_t size) const override
             {
-                return do_work();
+                return do_work(size);
             }
         };
     }
@@ -77,7 +81,7 @@ namespace spore::benchmarks
     {
         struct facade
         {
-            std::function<int()> work;
+            std::function<std::size_t(std::size_t)> work;
         };
 
         struct impl : facade
@@ -96,15 +100,15 @@ namespace spore::benchmarks
         // clang-format off
         struct facade :
             pro::facade_builder
-               ::add_convention<mem_work, int() const>
+               ::add_convention<mem_work, std::size_t(std::size_t) const>
                ::build {};
         // clang-format on
 
         struct impl
         {
-            int work() const
+            std::size_t work(const std::size_t size) const
             {
-                return do_work();
+                return do_work(size);
             }
         };
     }
@@ -113,18 +117,18 @@ namespace spore::benchmarks
     {
         struct facade : proxy_facade<facade>
         {
-            int work()
+            std::size_t work(const std::size_t size) const
             {
-                constexpr auto func = [](auto& self) { return self.work(); };
-                return proxies::dispatch<int>(func, *this);
+                constexpr auto func = [](auto& self, const std::size_t size) { return self.work(size); };
+                return proxies::dispatch<int>(func, *this, size);
             }
         };
 
         struct impl
         {
-            int work()
+            std::size_t work(const std::size_t size) const
             {
-                return do_work();
+                return do_work(size);
             }
         };
     }
@@ -136,6 +140,7 @@ int main()
 
     constexpr std::size_t warm_iterations = 1000;
     constexpr std::size_t work_iterations = 100000000;
+    constexpr std::size_t work_size = 100;
 
     std::vector<benchmarks::result> results;
 
@@ -144,13 +149,13 @@ int main()
 
         for (std::size_t index = 0; index < warm_iterations; ++index)
         {
-            std::ignore = facade->work();
+            std::ignore = facade->work(work_size);
         }
 
         results.emplace_back() = benchmarks::run_benchmark("virtual", [&] {
             for (std::size_t index = 0; index < work_iterations; ++index)
             {
-                std::ignore = facade->work();
+                std::ignore = facade->work(work_size);
             }
         });
     }
@@ -160,13 +165,13 @@ int main()
 
         for (std::size_t index = 0; index < warm_iterations; ++index)
         {
-            std::ignore = facade->work();
+            std::ignore = facade->work(work_size);
         }
 
         results.emplace_back() = benchmarks::run_benchmark("functional", [&] {
             for (std::size_t index = 0; index < work_iterations; ++index)
             {
-                std::ignore = facade->work();
+                std::ignore = facade->work(work_size);
             }
         });
     }
@@ -176,13 +181,13 @@ int main()
 
         for (std::size_t index = 0; index < warm_iterations; ++index)
         {
-            std::ignore = facade->work();
+            std::ignore = facade->work(work_size);
         }
 
         results.emplace_back() = benchmarks::run_benchmark("microsoft", [&] {
             for (std::size_t index = 0; index < work_iterations; ++index)
             {
-                std::ignore = facade->work();
+                std::ignore = facade->work(work_size);
             }
         });
     }
@@ -192,13 +197,13 @@ int main()
 
         for (std::size_t index = 0; index < warm_iterations; ++index)
         {
-            std::ignore = facade.work();
+            std::ignore = facade.work(work_size);
         }
 
         results.emplace_back() = benchmarks::run_benchmark("spore", [&] {
             for (std::size_t index = 0; index < work_iterations; ++index)
             {
-                std::ignore = facade.work();
+                std::ignore = facade.work(work_size);
             }
         });
     }

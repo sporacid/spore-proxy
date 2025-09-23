@@ -3,7 +3,6 @@
 #include "spore/proxy/proxy.hpp"
 #include "spore/proxy/tests/t_dispatch.hpp"
 #include "spore/proxy/tests/t_templates.hpp"
-#include "spore/proxy/tests/t_thread.hpp"
 #include "spore/proxy/tests/t_translation_unit.hpp"
 
 #ifndef SPORE_PROXY_THREAD_COUNT
@@ -11,14 +10,18 @@
 #endif
 
 #ifndef SPORE_PROXY_ENABLE_THREAD_TEST
-#    define SPORE_PROXY_ENABLE_THREAD_TEST 0
+#    define SPORE_PROXY_ENABLE_THREAD_TEST 1
 #endif
 
 #if SPORE_PROXY_ENABLE_THREAD_TEST
+#    include "spore/proxy/tests/t_thread.hpp"
+
 #    include <array>
 #    include <ranges>
 #    include <thread>
 #endif
+
+#include <fstream>
 
 TEST_CASE("spore::proxy", "[spore::proxy]")
 {
@@ -451,12 +454,13 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         constexpr std::size_t thread_count = SPORE_PROXY_THREAD_COUNT;
         constexpr std::size_t result_count = 256;
 
-        std::atomic<std::size_t> counter;
         std::atomic_flag flag = ATOMIC_FLAG_INIT;
 
         proxy p = proxies::make_value<proxies::tests::threads::facade, proxies::tests::threads::impl>();
 
-        std::atomic<std::size_t> results[thread_count][result_count] {};
+        std::mutex mutex;
+        std::size_t thread_counter;
+        std::size_t results[thread_count][result_count] {};
 
         const auto make_thread = [&]<std::size_t... indices_v>(std::index_sequence<indices_v...>) {
             return std::thread {
@@ -465,13 +469,18 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
                     {
                     }
 
-                    const std::size_t thread_index = counter++;
+                    std::size_t thread_results[result_count] {};
 
                     const auto set_result = [&]<std::size_t index_v> {
-                        results[thread_index][index_v] = p.act<index_v>();
+                        thread_results[index_v] = p.act<index_v>();
                     };
 
                     (set_result.template operator()<indices_v>(), ...);
+
+                    std::lock_guard lock{mutex};
+
+                    const std::size_t thread_index = thread_counter++;
+                    std::copy(std::begin(thread_results), std::end(thread_results), std::begin(results[thread_index]));
                 },
             };
         };
@@ -489,6 +498,20 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         }
 
         std::ranges::for_each(threads, [](std::thread& thread) { thread.join(); });
+
+#if 0
+        std::ofstream file {"C:/Dev/wtf.txt"};
+
+        for (std::size_t thread_index = 0; thread_index < thread_count; ++thread_index)
+        {
+            for (std::size_t result_index = 0; result_index < result_count; ++result_index)
+            {
+                file << thread_index << ":" << result_index << " -> " << results[thread_index][result_index] << std::endl;
+            }
+        }
+
+        file.close();
+#endif
 
         for (std::size_t thread_index = 0; thread_index < thread_count; ++thread_index)
         {

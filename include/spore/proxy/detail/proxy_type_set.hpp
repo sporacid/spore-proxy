@@ -1,5 +1,8 @@
 #pragma once
 
+#include "spore/proxy/detail/proxy_type_id.hpp"
+
+#include <algorithm>
 #include <cstddef>
 
 namespace spore::proxies::detail
@@ -50,7 +53,16 @@ namespace spore::proxies::detail
         };
 
         template <typename value_t, typename... values_t>
-        constexpr bool pack_contains = (std::is_same_v<value_t, values_t> or ...);
+        consteval bool pack_contains()
+        {
+            const std::size_t type_id = proxies::detail::type_id<value_t>();
+
+            std::array<std::size_t, sizeof...(values_t)> type_ids {proxies::detail::type_id<values_t>()...};
+            std::ranges::sort(type_ids);
+
+            const auto it_type_id = std::ranges::lower_bound(type_ids, type_id);
+            return it_type_id != type_ids.end() and * it_type_id == type_id;
+        }
 
         template <typename, typename>
         struct concat;
@@ -74,7 +86,7 @@ namespace spore::proxies::detail
         struct unique<type_set<value_t, values_t...>>
         {
             using type = std::conditional_t<
-                pack_contains<value_t, values_t...>,
+                pack_contains<value_t, values_t...>(),
                 typename unique<type_set<values_t...>>::type,
                 typename concat<type_set<value_t>, typename unique<type_set<values_t...>>::type>::type>;
         };

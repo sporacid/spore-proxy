@@ -10,6 +10,11 @@ function(add_benchmark_target TARGET_NAME DISPATCH_TYPE)
     ${CMAKE_CURRENT_SOURCE_DIR}/include
   )
 
+  target_compile_definitions(
+    ${TARGET_NAME} PRIVATE
+    SPORE_PROXY_DISPATCH_DEFAULT=${DISPATCH_TYPE}
+  )
+
   target_link_libraries(
     ${TARGET_NAME} PRIVATE
     ${PROJECT_NAME}.lib
