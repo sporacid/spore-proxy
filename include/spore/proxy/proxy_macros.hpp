@@ -56,3 +56,11 @@
 #else
 #    define SPORE_PROXY_LIFETIME_BOUND
 #endif
+
+#if defined(_MSC_VER)
+#    define SPORE_PROXY_FORCE_INLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#    define SPORE_PROXY_FORCE_INLINE __attribute__((always_inline))
+#else
+#    define SPORE_PROXY_FORCE_INLINE
+#endif

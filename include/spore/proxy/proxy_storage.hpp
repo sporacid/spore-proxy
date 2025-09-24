@@ -25,7 +25,6 @@ namespace spore
         void* (*allocate)();
         void (*deallocate)(void*) noexcept;
         void (*destroy)(void*) noexcept;
-        void (*move)(void*, void*);
         void (*copy)(void*, const void*);
 
         template <typename value_t>
@@ -46,22 +45,6 @@ namespace spore
                     {
                         auto* value = static_cast<value_t*>(ptr);
                         std::destroy_at(value);
-                    }
-                },
-                .move = [](void* ptr, void* other_ptr) SPORE_PROXY_THROW_SPEC {
-                    if constexpr (std::is_trivially_move_constructible_v<value_t>)
-                    {
-                        std::memcpy(ptr, other_ptr, sizeof(value_t));
-                    }
-                    else if constexpr (std::is_move_constructible_v<value_t>)
-                    {
-                        auto* value = static_cast<value_t*>(ptr);
-                        auto* other_value = static_cast<value_t*>(other_ptr);
-                        std::construct_at(value, std::move(*other_value));
-                    }
-                    else
-                    {
-                        SPORE_PROXY_THROW("not movable");
                     }
                 },
                 .copy = [](void* ptr, const void* other_ptr) SPORE_PROXY_THROW_SPEC {
@@ -226,13 +209,15 @@ namespace spore
     template <typename value_t>
     struct proxy_storage_inline
     {
+        constexpr proxy_storage_inline() = default;
+
         template <typename... args_t>
         constexpr explicit proxy_storage_inline(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
             value.emplace(std::forward<args_t>(args)...);
         }
 
-        [[nodiscard]] constexpr void* ptr() const noexcept
+        [[nodiscard]] constexpr void* ptr() const
         {
             return std::addressof(value.value());
         }

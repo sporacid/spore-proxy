@@ -1,5 +1,7 @@
 #pragma once
 
+#include "spore/proxy/proxy_macros.hpp"
+
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -20,17 +22,17 @@ namespace spore
         {
         }
 
-        [[nodiscard]] void* ptr() noexcept
+        [[nodiscard]] SPORE_PROXY_FORCE_INLINE void* ptr() noexcept
         {
             return _ptr;
         }
 
-        [[nodiscard]] const void* ptr() const noexcept
+        [[nodiscard]] SPORE_PROXY_FORCE_INLINE const void* ptr() const noexcept
         {
             return _ptr;
         }
 
-        [[nodiscard]] std::uint32_t type_index() const noexcept
+        [[nodiscard]] SPORE_PROXY_FORCE_INLINE std::uint32_t type_index() const noexcept
         {
             return _type_index.value();
         }

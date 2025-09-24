@@ -244,10 +244,10 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         };
 
         static_assert(std::is_move_constructible_v<inline_proxy<facade, impl>>);
-        static_assert(std::is_move_assignable_v<inline_proxy<facade, impl>>);
+        static_assert(not std::is_move_assignable_v<inline_proxy<facade, impl>>);
 
         static_assert(std::is_copy_constructible_v<inline_proxy<facade, impl>>);
-        static_assert(std::is_copy_assignable_v<inline_proxy<facade, impl>>);
+        static_assert(not std::is_copy_assignable_v<inline_proxy<facade, impl>>);
 
         bool flag = false;
         proxy p1 = proxies::make_value<facade, impl>(flag);
