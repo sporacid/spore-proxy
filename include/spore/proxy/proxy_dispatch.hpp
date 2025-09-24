@@ -11,7 +11,7 @@
 #include <unordered_map>
 
 #ifndef SPORE_PROXY_DISPATCH_DEFAULT
-#    define SPORE_PROXY_DISPATCH_DEFAULT proxy_dispatch_dynamic
+#    define SPORE_PROXY_DISPATCH_DEFAULT proxy_dispatch_dynamic<>
 #endif
 
 namespace spore
@@ -62,10 +62,9 @@ namespace spore
         }
     }
 
+    template <std::size_t size_v = 16, std::float_t grow_v = 1.5f>
     struct [[maybe_unused]] proxy_dispatch_dynamic
     {
-        static constexpr std::float_t grow_factor = 1.5f;
-
         template <typename facade_t, typename mapping_t>
         static void* get_ptr(const std::uint32_t type_index) noexcept
         {
@@ -80,7 +79,7 @@ namespace spore
 
             if (type_index >= mapping_ptrs.size())
             {
-                const std::size_t new_size = std::max<std::size_t>(type_index + 1, mapping_ptrs.size() * grow_factor);
+                const std::size_t new_size = std::max<std::size_t>(type_index + 1, mapping_ptrs.size() * grow_v);
                 mapping_ptrs.resize(new_size);
             }
 
@@ -88,10 +87,10 @@ namespace spore
         }
 
         template <typename facade_t, typename mapping_t>
-        static inline thread_local std::vector<void*> ptrs;
+        static inline thread_local std::vector<void*> ptrs {size_v};
     };
 
-    template <std::size_t size_v>
+    template <std::size_t size_v = 64>
     struct [[maybe_unused]] proxy_dispatch_static
     {
         template <typename facade_t, typename mapping_t>

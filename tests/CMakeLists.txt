@@ -42,5 +42,5 @@ function(add_test_target TARGET_NAME DISPATCH_TYPE)
   catch_discover_tests(${TARGET_NAME})
 endfunction()
 
-add_test_target(${PROJECT_NAME}.tests.static "spore::proxy_dispatch_static<64>")
-add_test_target(${PROJECT_NAME}.tests.dynamic "spore::proxy_dispatch_dynamic")
+add_test_target(${PROJECT_NAME}.tests.static "spore::proxy_dispatch_static<>")
+add_test_target(${PROJECT_NAME}.tests.dynamic "spore::proxy_dispatch_dynamic<>")

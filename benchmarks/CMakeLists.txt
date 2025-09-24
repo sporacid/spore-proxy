@@ -17,17 +17,17 @@ function(add_benchmark_target TARGET_NAME DISPATCH_TYPE)
     SPORE_PROXY_DISPATCH_DEFAULT=${DISPATCH_TYPE}
   )
 
-#  if (CMAKE_BUILD_TYPE EQUAL "Release")
-#    target_compile_options(
-#      ${TARGET_NAME} PRIVATE
-#      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/O2>"
-#      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Oy>"
-#      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Oi>"
-#      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Ob3>"
-#      "$<$<CXX_COMPILER_FRONTEND_VARIANT:GNU>:-O3>"
-#      "$<$<CXX_COMPILER_FRONTEND_VARIANT:Clang>:-O3>"
-#    )
-#  endif ()
+  if (CMAKE_BUILD_TYPE EQUAL "Release")
+    target_compile_options(
+      ${TARGET_NAME} PRIVATE
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/O2>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Oy>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Oi>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Ob3>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:GNU>:-O3>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:Clang>:-O3>"
+    )
+  endif ()
 
   target_link_libraries(
     ${TARGET_NAME} PRIVATE
@@ -37,5 +37,5 @@ function(add_benchmark_target TARGET_NAME DISPATCH_TYPE)
   )
 endfunction()
 
-add_benchmark_target(${PROJECT_NAME}.benchmarks.static "spore::proxy_dispatch_static<64>")
-add_benchmark_target(${PROJECT_NAME}.benchmarks.dynamic "spore::proxy_dispatch_dynamic")
+add_benchmark_target(${PROJECT_NAME}.benchmarks.static "spore::proxy_dispatch_static<>")
+add_benchmark_target(${PROJECT_NAME}.benchmarks.dynamic "spore::proxy_dispatch_dynamic<>")
