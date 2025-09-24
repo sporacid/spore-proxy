@@ -15,11 +15,23 @@ function(add_benchmark_target TARGET_NAME DISPATCH_TYPE)
     SPORE_PROXY_DISPATCH_DEFAULT=${DISPATCH_TYPE}
   )
 
-  target_compile_options(
-    ${TARGET_NAME} PRIVATE
-    "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/OPT:NOREF>"
-    "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/OPT:NOICF>"
-  )
+  #  target_compile_options(
+  #    ${TARGET_NAME} PRIVATE
+  #    "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/OPT:NOREF>"
+  #    "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/OPT:NOICF>"
+  #  )
+
+  if (CMAKE_BUILD_TYPE EQUAL "Release")
+    target_compile_options(
+      ${TARGET_NAME} PRIVATE
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/O2>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Oy>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Oi>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/Ob3>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:GNU>:-O3>"
+      "$<$<CXX_COMPILER_FRONTEND_VARIANT:Clang>:-O3>"
+    )
+  endif ()
 
   target_link_libraries(
     ${TARGET_NAME} PRIVATE

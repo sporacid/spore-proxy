@@ -59,7 +59,7 @@ namespace spore
         {
             constexpr auto unwrap_mapping = []</*typename facade_t, */ typename func_t, typename self_t, typename return_t, typename... args_t>(const dispatch_mapping</*facade_t, */ func_t, self_t, return_t(args_t...)>) {
                 using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
-                const auto func = [](void_t* ptr, args_t... args) -> return_t {
+                constexpr auto func = [](void_t* ptr, args_t... args) -> return_t {
                     if constexpr (std::is_const_v<std::remove_reference_t<self_t>>)
                     {
                         return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t&&>(args)...);
@@ -163,26 +163,26 @@ namespace spore
     template <template <typename...> typename unordered_map_t = std::unordered_map, typename mutex_t = proxies::detail::spin_lock>
     struct proxy_dispatch_dynamic
     {
-        static void* get_ptr(const std::size_t mapping_id, const std::size_t type_id) noexcept
+        static void* get_ptr(const std::uint32_t mapping_id, const std::uint32_t type_id) noexcept
         {
             const dispatch_key dispatch_key {mapping_id, type_id};
-            const std::lock_guard lock {_mutex};
+            // const std::lock_guard lock {_mutex};
             const auto it_ptr = _ptr_map.find(dispatch_key);
             return it_ptr != _ptr_map.end() ? it_ptr->second : nullptr;
         }
 
-        static void set_ptr(const std::size_t mapping_id, const std::size_t type_id, void* ptr) noexcept
+        static void set_ptr(const std::uint32_t mapping_id, const std::uint32_t type_id, void* ptr) noexcept
         {
             const dispatch_key dispatch_key {mapping_id, type_id};
-            const std::lock_guard lock {_mutex};
+            // const std::lock_guard lock {_mutex};
             _ptr_map.insert_or_assign(dispatch_key, ptr);
         }
 
       private:
         struct dispatch_key
         {
-            std::size_t mapping_id = 0;
-            std::size_t type_id = 0;
+            std::uint32_t mapping_id = 0;
+            std::uint32_t type_id = 0;
 
             constexpr bool operator==(const dispatch_key& other) const
             {
@@ -199,27 +199,37 @@ namespace spore
         };
 
         static inline mutex_t _mutex;
-        static inline unordered_map_t<dispatch_key, void*, dispatch_hash> _ptr_map;
+        static inline thread_local unordered_map_t<dispatch_key, void*, dispatch_hash> _ptr_map;
     };
 
     template <std::size_t size_v, typename mutex_t = proxies::detail::spin_lock>
     struct proxy_dispatch_static
     {
-        static void* get_ptr(const std::size_t mapping_id, const std::size_t type_id) noexcept
+        static std::size_t do_work(std::size_t size)
         {
-#if 0
-            while (_modifying.test(std::memory_order_acquire))
+            std::size_t result = 0;
+
+            for (std::size_t index = 0; index < size; index++)
             {
+                result += index;
             }
 
-            const std::size_t dispatch_id = proxies::detail::hash_combine(mapping_id, type_id);
-            const std::size_t dispatch_index = dispatch_id % size_v;
-            return _ptr_map[dispatch_index].ptr();
-#elif 0
+            return result;
+        }
+
+        static void* get_ptr(const std::uint32_t mapping_id, const std::uint32_t type_id) noexcept
+        {
+#if 0
+            return (void*) &do_work;
+#elif 1
+            const std::uint32_t dispatch_id = mapping_id ^ (mapping_id + 0x9e3779b9 + (type_id << 6) + (type_id >> 2));
+            const std::uint32_t dispatch_index = dispatch_id % size_v;
+            return _ptr_map2[dispatch_index];
+#elif 1
             const std::size_t dispatch_id = proxies::detail::hash_combine(mapping_id, type_id);
             const std::size_t dispatch_index = dispatch_id % size_v;
             const std::lock_guard lock {_mutex};
-            return _ptr_map[dispatch_index].ptr();
+            return _ptr_map2[dispatch_index];
 #else
             // while (_modifying.test(std::memory_order_acquire))
             // {
@@ -251,24 +261,17 @@ namespace spore
 #endif
         }
 
-        static void set_ptr(const std::size_t mapping_id, const std::size_t type_id, void* ptr) noexcept
+        static void set_ptr(const std::uint32_t mapping_id, const std::uint32_t type_id, void* ptr) noexcept
         {
-#if 0
-            while (_modifying.test_and_set(std::memory_order_acquire))
-            {
-            }
-
-            const std::size_t dispatch_id = proxies::detail::hash_combine(mapping_id, type_id);
-            const std::size_t dispatch_index = dispatch_id % size_v;
-            _ptr_map[dispatch_index] = dispatch_ptr {ptr, 0};
-
-            _modifying.clear();
-
-#elif 0
+#if 1
+            const std::uint32_t dispatch_id = mapping_id ^ (mapping_id + 0x9e3779b9 + (type_id << 6) + (type_id >> 2));
+            const std::uint32_t dispatch_index = dispatch_id % size_v;
+            _ptr_map2[dispatch_index] = ptr;
+#elif 1
             const std::size_t dispatch_id = proxies::detail::hash_combine(mapping_id, type_id);
             const std::size_t dispatch_index = dispatch_id % size_v;
             const std::lock_guard lock {_mutex};
-            _ptr_map[dispatch_index] = dispatch_ptr {ptr, 0};
+            _ptr_map2[dispatch_index] = ptr;
 #else
             const std::size_t dispatch_id = proxies::detail::hash_combine(mapping_id, type_id);
             const std::uint16_t checksum = make_checksum(mapping_id, type_id);
@@ -285,7 +288,7 @@ namespace spore
             {
                 dispatch_ptr& ptr_data = _ptr_map[dispatch_index];
 
-                if (not ptr_data.valid())
+                if (not ptr_data.valid() or checksum != ptr_data.checksum())
                 {
                     ptr_data = dispatch_ptr {ptr, checksum};
                     // _modifying.clear();
@@ -351,6 +354,7 @@ namespace spore
         // static inline std::atomic_flag _modifying {};
         static inline mutex_t _mutex;
         static inline std::array<dispatch_ptr, size_v> _ptr_map {};
+        static inline std::array<void*, size_v> _ptr_map2 {};
 
         static constexpr std::size_t _seeds[] {
             0x65d859d632a0a935ULL,
@@ -693,36 +697,7 @@ namespace spore
                 using dispatch_t = proxy_dispatch_default;
                 using once_tag_t = proxies::detail::once_tag<value_t, mapping_t>;
 
-                //                __declspec(allocate("_spore_proxy$b")) static linker_entry entry {
-                //                    .key = {
-                //                        .mapping_id = proxies::detail::type_id<mapping_t>(),
-                //                        .type_id = proxies::detail::type_id<value_t>(),
-                //                    },
-                //                    .ptr = proxies::detail::get_mapping_ptr<value_t, mapping_t>(),
-                //                };
-                //
-                //                [[maybe_unused]] auto& force_emit = entry;
-
-                //                proxies::detail::entry<value_t, mapping_t> = {
-                //                    .key = {
-                //                        .mapping_id = proxies::detail::type_id<mapping_t>(),
-                //                        .type_id = proxies::detail::type_id<value_t>(),
-                //                    },
-                //                    .ptr = proxies::detail::get_mapping_ptr<value_t, mapping_t>(),
-                //                };
-                //
-                // [[maybe_unused]] auto& force_emit = proxies::detail::entry<value_t, mapping_t>;
-
-                // void(proxies::detail::entry<value_t, mapping_t>);
-                // proxies::detail::entry<value_t, mapping_t> = {
-                //     .key = {
-                //         .mapping_id = proxies::detail::type_id<mapping_t>(),
-                //         .type_id = proxies::detail::type_id<value_t>(),
-                //     },
-                //     .ptr = proxies::detail::get_mapping_ptr<value_t, mapping_t>(),
-                // };
-
-                [[maybe_unused]] const once<once_tag_t> once = [] {
+                [[maybe_unused]] static thread_local const once<once_tag_t> once = [] {
                     dispatch_t::set_ptr(
                         proxies::detail::type_id<mapping_t>(),
                         proxies::detail::type_id<value_t>(),
@@ -738,7 +713,7 @@ namespace spore
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
 
-                [[maybe_unused]] const once<once_tag_t> once = [] {
+                [[maybe_unused]] static thread_local const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::mapping_tag<facade_t>>([]<typename mapping_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -747,8 +722,6 @@ namespace spore
                         proxies::detail::add_facade_value_once<base_facade_t, value_t>();
                     });
                 };
-
-                // (void) once;
             }
 
             template <typename facade_t, typename mapping_t>
@@ -759,7 +732,7 @@ namespace spore
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
 
-                [[maybe_unused]] const once<once_tag_t> once = [] {
+                [[maybe_unused]] static thread_local const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -770,8 +743,6 @@ namespace spore
                         });
                     });
                 };
-
-                // (void) once;
             }
 
             // static inline std::recursive_mutex _mutex;
@@ -798,7 +769,7 @@ namespace spore
                 //     _file_ << proxies::detail::type_id<mapping_t>() << std::endl;
                 //     _file_ << typeid(mapping_t).name() << std::endl;
                 //     _file_  << std::endl;
-//
+                //
                 // }
 
                 static_assert(std::is_empty_v<func_t>);

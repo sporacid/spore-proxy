@@ -1,10 +1,13 @@
 #pragma once
 
+#include "spore/proxy/detail/proxy_counter.hpp"
 #include "spore/proxy/detail/proxy_hash.hpp"
 
 #include <atomic>
 #include <bit>
 #include <source_location>
+#include <typeindex>
+#include <typeinfo>
 
 namespace spore::proxies::detail
 {
@@ -183,13 +186,28 @@ namespace spore::proxies::detail
         // return static_cast<std::size_t>(hash);
     }
 #else
-    inline std::atomic<std::size_t> type_id_counter;
+    inline std::atomic<std::uint32_t> type_id_counter;
+    //
+    // template <typename value_t>
+    // inline constexpr std::size_t value = counter<>;
 
     template <typename value_t>
-    std::size_t type_id()
+    std::uint32_t type_id()
     {
-        static std::size_t value = type_id_counter++;
+        // return counter<>;
+        static const std::uint32_t value = type_id_counter++;
         return value;
+        // return 0;
+        // return value<value_t>;
+        // static const std::size_t value = type_id_counter++;
+        // return value;
+        //
+        // static constexpr const std::type_info& type_info = typeid(value_t);
+        // return std::bit_cast<std::size_t>(&type_info);
+        // [[maybe_unused]] static const bool _ = false;
+        // return std::bit_cast<std::size_t>(&_);
+        // static std::size_t value = type_id_counter++;
+        // return value;
         // constexpr auto self = &type_id<value_t>;
         // return std::bit_cast<std::size_t>(&type_id<value_t>);
         // constexpr std::source_location location = std::source_location::current();
