@@ -54,33 +54,33 @@ namespace spore
             };
         };
 
-//        template <bool const_v, bool temp_v>
-//        struct forward_traits
-//        {
-//            static constexpr bool is_const = const_v;
-//            static constexpr bool is_temp = temp_v;
-//        };
-//
-//        template <forward_traits traits_v>
-//        struct dispatcher
-//        {
-//            template <typename value_t, typename result_t, typename... args_t>
-//            constexpr result_t operator()(void* ptr, args_t&&... args) const
-//            {
-//                if constexpr (traits_v.is_const)
-//                {
-//                    return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t>(args)...);
-//                }
-//                else if constexpr (traits_v.is_temp)
-//                {
-//                    return func_t {}(std::move(*static_cast<value_t*>(ptr)), std::forward<args_t>(args)...);
-//                }
-//                else
-//                {
-//                    return func_t {}(*static_cast<value_t*>(ptr), std::forward<args_t>(args)...);
-//                }
-//            }
-//        };
+        //        template <bool const_v, bool temp_v>
+        //        struct forward_traits
+        //        {
+        //            static constexpr bool is_const = const_v;
+        //            static constexpr bool is_temp = temp_v;
+        //        };
+        //
+        //        template <forward_traits traits_v>
+        //        struct dispatcher
+        //        {
+        //            template <typename value_t, typename result_t, typename... args_t>
+        //            constexpr result_t operator()(void* ptr, args_t&&... args) const
+        //            {
+        //                if constexpr (traits_v.is_const)
+        //                {
+        //                    return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t>(args)...);
+        //                }
+        //                else if constexpr (traits_v.is_temp)
+        //                {
+        //                    return func_t {}(std::move(*static_cast<value_t*>(ptr)), std::forward<args_t>(args)...);
+        //                }
+        //                else
+        //                {
+        //                    return func_t {}(*static_cast<value_t*>(ptr), std::forward<args_t>(args)...);
+        //                }
+        //            }
+        //        };
 
         template <typename tag_t>
         struct index_impl
@@ -239,6 +239,38 @@ namespace spore
 
         static inline mutex_t _mutex;
         static inline thread_local unordered_map_t<dispatch_key, void*, dispatch_hash> _ptr_map;
+    };
+
+    struct proxy_dispatch_dynamic2
+    {
+        template <typename facade_t, typename mapping_t>
+        static void* get_ptr(const std::uint32_t type_index) noexcept
+        {
+            const std::vector<void*>& mapping_ptrs =ptrs<facade_t, mapping_t>;
+            return type_index < mapping_ptrs.size() ? mapping_ptrs[type_index] : nullptr;
+        }
+
+        template <typename facade_t, typename mapping_t>
+        static void set_ptr(const std::uint32_t type_index, void* ptr) noexcept
+        {
+            std::vector<void*>& mapping_ptrs =ptrs<facade_t, mapping_t>;
+
+            while (type_index >= mapping_ptrs.size())
+            {
+                mapping_ptrs.resize(mapping_ptrs.size() * 2);
+            }
+
+            mapping_ptrs[type_index] = ptr;
+        }
+
+        template <typename facade_t, typename value_t>
+        static void** get_ptr_base()
+        {
+            return nullptr;
+        }
+
+        template <typename facade_t, typename mapping_t>
+        static inline thread_local std::vector<void*> ptrs;
     };
 
     template <std::size_t max_type_v>
