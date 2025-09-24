@@ -1,5 +1,3 @@
-# set(TARGET_NAME ${PROJECT_NAME}.tests)
-
 file(GLOB_RECURSE TARGET_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp)
 
 include(ProcessorCount)
@@ -42,16 +40,7 @@ function(add_test_target TARGET_NAME DISPATCH_TYPE)
   include(Catch)
 
   catch_discover_tests(${TARGET_NAME})
-
-  if (BUILD_SHARED_LIBS)
-    add_custom_command(
-      TARGET ${TARGET_NAME} PRE_LINK
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      $<TARGET_FILE:${PROJECT_NAME}.lib>
-      $<TARGET_FILE_DIR:${TARGET_NAME}>
-    )
-  endif ()
 endfunction()
 
-add_test_target(${PROJECT_NAME}.tests.static "spore::proxy_dispatch_static4<64>")
-add_test_target(${PROJECT_NAME}.tests.dynamic "spore::proxy_dispatch_dynamic2")
+add_test_target(${PROJECT_NAME}.tests.static "spore::proxy_dispatch_static<64>")
+add_test_target(${PROJECT_NAME}.tests.dynamic "spore::proxy_dispatch_dynamic")

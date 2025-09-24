@@ -17,12 +17,6 @@ function(add_benchmark_target TARGET_NAME DISPATCH_TYPE)
     SPORE_PROXY_DISPATCH_DEFAULT=${DISPATCH_TYPE}
   )
 
-  #  target_compile_options(
-  #    ${TARGET_NAME} PRIVATE
-  #    "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/OPT:NOREF>"
-  #    "$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/OPT:NOICF>"
-  #  )
-
 #  if (CMAKE_BUILD_TYPE EQUAL "Release")
 #    target_compile_options(
 #      ${TARGET_NAME} PRIVATE
@@ -43,5 +37,5 @@ function(add_benchmark_target TARGET_NAME DISPATCH_TYPE)
   )
 endfunction()
 
-add_benchmark_target(${PROJECT_NAME}.benchmarks.static "spore::proxy_dispatch_static4<64>")
-add_benchmark_target(${PROJECT_NAME}.benchmarks.dynamic "spore::proxy_dispatch_dynamic2")
+add_benchmark_target(${PROJECT_NAME}.benchmarks.static "spore::proxy_dispatch_static<64>")
+add_benchmark_target(${PROJECT_NAME}.benchmarks.dynamic "spore::proxy_dispatch_dynamic")
