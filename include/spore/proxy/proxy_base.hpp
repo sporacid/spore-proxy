@@ -6,9 +6,9 @@ namespace spore
 {
     struct proxy_base
     {
-        explicit proxy_base(const std::size_t type_id)
+        explicit proxy_base(const std::uint32_t type_index)
             : _ptr(nullptr),
-              _type_id(type_id)
+              _type_index(type_index)
         {
         }
 
@@ -22,13 +22,13 @@ namespace spore
             return _ptr;
         }
 
-        [[nodiscard]] std::size_t type_id() const noexcept
+        [[nodiscard]] std::uint32_t type_index() const noexcept
         {
-            return _type_id;
+            return _type_index;
         }
 
       protected:
         void* _ptr;
-        std::size_t _type_id;
+        std::uint32_t _type_index;
     };
 }

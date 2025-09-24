@@ -18,7 +18,7 @@ namespace spore
 
         template <typename value_t>
         constexpr proxy_view(value_t&& value) noexcept
-            : proxy_base(proxies::detail::type_id<std::decay_t<value_t>>())
+            : proxy_base(proxies::detail::type_index<std::decay_t<value_t>>())
         {
             proxies::detail::add_facade<facade_t>();
             proxies::detail::add_facade_value_once<facade_t, value_t>();
@@ -54,7 +54,7 @@ namespace spore
     {
         template <typename value_t, typename... args_t>
         constexpr explicit proxy(std::in_place_type_t<value_t> type, args_t&&... args) noexcept(std::is_nothrow_constructible_v<storage_t, std::in_place_type_t<value_t>, args_t&&...>)
-            : proxy_base(proxies::detail::type_id<value_t>()),
+            : proxy_base(proxies::detail::type_index<value_t>()),
               _storage(type, std::forward<args_t>(args)...)
         {
             proxies::detail::add_facade<facade_t>();
@@ -64,7 +64,7 @@ namespace spore
         }
 
         constexpr proxy(const proxy& other) noexcept(std::is_nothrow_copy_constructible_v<storage_t>) requires(std::is_copy_constructible_v<storage_t>)
-            : proxy_base(other._type_id)
+            : proxy_base(other._type_index)
         {
             _storage = other._storage;
             _ptr = _storage.ptr();
@@ -73,7 +73,7 @@ namespace spore
         constexpr proxy& operator=(const proxy& other) noexcept(std::is_nothrow_copy_constructible_v<storage_t>) requires(std::is_copy_assignable_v<storage_t>)
         {
             _storage = other._storage;
-            _type_id = other._type_id;
+            _type_index = other._type_index;
             _ptr = _storage.ptr();
 
             return *this;
@@ -83,14 +83,14 @@ namespace spore
             : proxy_base(0)
         {
             std::swap(_storage, other._storage);
-            std::swap(_type_id, other._type_id);
+            std::swap(_type_index, other._type_index);
             std::swap(_ptr, other._ptr);
         }
 
         constexpr proxy& operator=(proxy&& other) noexcept(std::is_nothrow_move_constructible_v<storage_t>) requires(std::is_move_assignable_v<storage_t>)
         {
             std::swap(_storage, other._storage);
-            std::swap(_type_id, other._type_id);
+            std::swap(_type_index, other._type_index);
             std::swap(_ptr, other._ptr);
 
             return *this;
@@ -118,7 +118,7 @@ namespace spore
     template <any_proxy_facade facade_t>
     template <any_proxy_storage storage_t>
     constexpr proxy_view<facade_t>::proxy_view(const proxy<facade_t, storage_t>& proxy) noexcept
-        : proxy_base(proxy.type_id())
+        : proxy_base(proxy.type_index())
     {
         _ptr = proxy.ptr();
     }
@@ -126,7 +126,7 @@ namespace spore
     template <any_proxy_facade facade_t>
     template <any_proxy_storage storage_t>
     constexpr proxy_view<facade_t>::proxy_view(proxy<facade_t, storage_t>& proxy) noexcept
-        : proxy_base(proxy.type_id())
+        : proxy_base(proxy.type_index())
     {
         _ptr = proxy.ptr();
     }
@@ -134,7 +134,7 @@ namespace spore
     template <any_proxy_facade facade_t>
     template <any_proxy_storage storage_t>
     constexpr proxy_view<facade_t>::proxy_view(proxy<facade_t, storage_t>&& proxy) noexcept
-        : proxy_base(proxy.type_id())
+        : proxy_base(proxy.type_index())
     {
         _ptr = proxy.ptr();
     }
