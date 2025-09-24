@@ -54,6 +54,34 @@ namespace spore
             };
         };
 
+//        template <bool const_v, bool temp_v>
+//        struct forward_traits
+//        {
+//            static constexpr bool is_const = const_v;
+//            static constexpr bool is_temp = temp_v;
+//        };
+//
+//        template <forward_traits traits_v>
+//        struct dispatcher
+//        {
+//            template <typename value_t, typename result_t, typename... args_t>
+//            constexpr result_t operator()(void* ptr, args_t&&... args) const
+//            {
+//                if constexpr (traits_v.is_const)
+//                {
+//                    return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t>(args)...);
+//                }
+//                else if constexpr (traits_v.is_temp)
+//                {
+//                    return func_t {}(std::move(*static_cast<value_t*>(ptr)), std::forward<args_t>(args)...);
+//                }
+//                else
+//                {
+//                    return func_t {}(*static_cast<value_t*>(ptr), std::forward<args_t>(args)...);
+//                }
+//            }
+//        };
+
         template <typename tag_t>
         struct index_impl
         {
