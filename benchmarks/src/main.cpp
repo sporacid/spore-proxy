@@ -215,7 +215,7 @@ int main()
 
     constexpr std::size_t warm_iterations = 100;
     constexpr std::size_t work_iterations = 100000000;
-    constexpr std::size_t work_size = 10000;
+    constexpr std::size_t work_size = 100;
 
     // const spore::proxies::detail::linker_entry* begin = &__start__spore_proxy$b;
     // const spore::proxies::detail::linker_entry* end = &__end__spore_proxy$b;
