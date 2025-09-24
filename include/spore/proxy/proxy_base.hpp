@@ -13,15 +13,15 @@ namespace spore
         {
         }
 
-        [[nodiscard]] void* ptr() const noexcept
+        [[nodiscard]] void* ptr() noexcept
         {
             return _ptr;
         }
 
-        // [[nodiscard]] const void* ptr() const noexcept
-        // {
-        //     return _ptr;
-        // }
+        [[nodiscard]] const void* ptr() const noexcept
+        {
+            return _ptr;
+        }
 
         [[nodiscard]] void** vptr() const noexcept
         {
