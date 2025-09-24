@@ -115,7 +115,15 @@ namespace spore::benchmarks
 
     namespace microsoft
     {
+
+#if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wc++23-extensions"
+#endif
         PRO_DEF_MEM_DISPATCH(mem_work, work);
+#if defined(__clang__)
+#    pragma clang diagnostic pop
+#endif
 
         // clang-format off
         struct facade :
@@ -287,7 +295,7 @@ int main()
     }
 
     {
-        inline_proxy<benchmarks::spore::facade, benchmarks::spore::impl> facade = proxies::make_inline(benchmarks::spore::impl{});
+        inline_proxy<benchmarks::spore::facade, benchmarks::spore::impl> facade = proxies::make_inline(benchmarks::spore::impl {});
 
         for (std::size_t index = 0; index < warm_iterations; ++index)
         {
