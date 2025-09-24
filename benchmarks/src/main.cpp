@@ -372,7 +372,7 @@ int main()
     }
 
     {
-        unique_proxy<benchmarks::spore::facade> facade = proxies::make_unique<benchmarks::spore::facade, benchmarks::spore::impl>();
+        unique_proxy<benchmarks::spore::facade> facade = proxies::make_unique2<benchmarks::spore::impl>();
 
         for (std::size_t index = 0; index < warm_iterations; ++index)
         {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "spore/proxy/detail/proxy_type_id.hpp"
+#include "spore/proxy/detail/proxy_counter.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -30,7 +31,7 @@ namespace spore::proxies::detail
             }
         };
 
-        template <std::size_t index_v, typename type_list_t>
+        template <std::size_t index_v, typename type_set_t>
         struct element_at;
 
         template <typename value_t, typename... values_t>
@@ -44,7 +45,7 @@ namespace spore::proxies::detail
         {
         };
 
-        template <typename type_list_t>
+        template <typename type_set_t>
         struct size_of;
 
         template <typename... values_t>
@@ -52,8 +53,35 @@ namespace spore::proxies::detail
         {
             static constexpr auto value = sizeof...(values_t);
         };
+#if 0
+        template <typename value_t, typename type_set_t>
+        struct type_key
+        {
+            static constexpr std::size_t value = proxies::detail::counters::get<type_set_t>();
+        };
 
-#if 1
+        template <typename type_set_t, typename value_t>
+        struct contains;
+
+        template <typename value_t, typename... values_t>
+        struct contains<type_set<values_t...>, value_t>
+        {
+            static constexpr bool value = [] {
+                using type_set_t = type_set<values_t...>;
+                std::array<std::size_t, sizeof...(values_t)> keys {type_key<values_t, type_set_t>::value...};
+                std::ranges::sort(keys);
+                std::size_t other_key = type_key<value_t, type_set_t>::value;
+                const auto it_key = std::ranges::lower_bound(keys, other_key);
+                return it_key != keys.end() and *it_key == other_key;
+            }();
+        };
+
+        template <typename value_t, typename... values_t>
+        consteval bool pack_contains()
+        {
+            return contains<type_set<values_t...>, value_t>::value;
+        }
+#elif 1
         template <typename value_t, typename... values_t>
         consteval bool pack_contains()
         {
@@ -135,7 +163,7 @@ namespace spore::proxies::detail
             //            return it_type_id != type_ids.end() and * it_type_id == type_id;
         }
 #endif
-#if 1
+#if 0
         template <typename, typename>
         struct concat;
 
@@ -194,17 +222,24 @@ namespace spore::proxies::detail
         template <typename value_t, typename... values_t>
         consteval auto emplace_impl(type_set<values_t...>)
         {
-            return typename unique<type_set<values_t..., value_t>>::type {};
+            if constexpr (pack_contains<value_t, values_t...>())
+            {
+                return type_set<values_t...> {};
+            }
+            else
+            {
+                return type_set<values_t..., value_t> {};
+            }
         }
 
-        template <std::size_t index_v, typename type_list_t, typename func_t>
+        template <std::size_t index_v, typename type_set_t, typename func_t>
         constexpr void for_each_impl(const func_t& func)
         {
-            if constexpr (index_v < size_of<type_list_t>::value)
+            if constexpr (index_v < size_of<type_set_t>::value)
             {
-                using value_t = typename element_at<index_v, type_list_t>::type;
+                using value_t = typename element_at<index_v, type_set_t>::type;
                 func.template operator()<value_t>();
-                for_each_impl<index_v + 1, type_list_t>(func);
+                for_each_impl<index_v + 1, type_set_t>(func);
             }
         }
 
@@ -245,8 +280,8 @@ namespace spore::proxies::detail
         template <typename tag_t, typename func_t>
         constexpr void for_each(const func_t& func)
         {
-            using type_list_t = decltype(get<tag_t>());
-            for_each_impl<0, type_list_t>(func);
+            using type_set_t = decltype(get<tag_t>());
+            for_each_impl<0, type_set_t>(func);
         }
     }
 }

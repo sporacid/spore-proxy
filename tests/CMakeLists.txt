@@ -53,5 +53,5 @@ function(add_test_target TARGET_NAME DISPATCH_TYPE)
   endif ()
 endfunction()
 
-add_test_target(${PROJECT_NAME}.tests.static "spore::proxy_dispatch_static2<64, 64, 64>")
+add_test_target(${PROJECT_NAME}.tests.static "spore::proxy_dispatch_static3<64, 64>")
 add_test_target(${PROJECT_NAME}.tests.dynamic "spore::proxy_dispatch_dynamic<>")
