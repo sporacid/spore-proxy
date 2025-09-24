@@ -19,7 +19,7 @@ namespace spore::benchmarks
     };
 
     template <typename value_t>
-    inline __forceinline void do_not_optimize(value_t& value)
+    SPORE_PROXY_FORCE_INLINE void do_not_optimize(value_t& value)
     {
 #if defined(__clang__)
         asm volatile("" : "+r,m"(value) : : "memory");
@@ -45,11 +45,11 @@ namespace spore::benchmarks
     template <typename func_t>
     result run_benchmark(const std::string_view name, func_t&& func)
     {
-        const auto then = std::chrono::high_resolution_clock::now();
+        const auto then = std::chrono::steady_clock::now();
 
         func();
 
-        const auto now = std::chrono::high_resolution_clock::now();
+        const auto now = std::chrono::steady_clock::now();
         const std::chrono::duration<std::double_t> duration = now - then;
 
         return result {
@@ -58,7 +58,7 @@ namespace spore::benchmarks
         };
     }
 
-    std::size_t do_work(const std::size_t size) noexcept
+    SPORE_PROXY_FORCE_INLINE std::size_t do_work(const std::size_t size) noexcept
     {
         std::size_t result = 0;
 
@@ -75,6 +75,26 @@ namespace spore::benchmarks
         struct facade
         {
             std::size_t work(const std::size_t size) const noexcept
+            {
+                return do_work(size);
+            }
+        };
+    }
+
+    namespace crtp
+    {
+        template <typename impl_t>
+        struct facade
+        {
+            std::size_t work(const std::size_t size) const noexcept
+            {
+                return static_cast<const impl_t&>(*this).work_impl(size);
+            }
+        };
+
+        struct impl : facade<impl>
+        {
+            std::size_t work_impl(const std::size_t size) const noexcept
             {
                 return do_work(size);
             }
@@ -210,8 +230,8 @@ int main()
     using namespace spore;
 
     constexpr std::size_t warm_iterations = 100;
-    constexpr std::size_t work_iterations = 100000000;
-    constexpr std::size_t work_size = 10000;
+    constexpr std::size_t work_iterations = 1000000000;
+    constexpr std::size_t work_size = 100;
 
     std::vector<benchmarks::result> results;
 
@@ -240,13 +260,18 @@ int main()
     };
 
     {
+        std::unique_ptr<benchmarks::virtual_::facade> facade = std::make_unique<benchmarks::virtual_::impl>();
+        benchmark.template operator()<work_pointer>("virtual", facade);
+    }
+
+    {
         std::unique_ptr<benchmarks::non_virtual::facade> facade = std::make_unique<benchmarks::non_virtual::facade>();
         benchmark.template operator()<work_pointer>("non-virtual", facade);
     }
 
     {
-        std::unique_ptr<benchmarks::virtual_::facade> facade = std::make_unique<benchmarks::virtual_::impl>();
-        benchmark.template operator()<work_pointer>("virtual", facade);
+        std::unique_ptr<benchmarks::crtp::facade<benchmarks::crtp::impl>> facade = std::make_unique<benchmarks::crtp::facade<benchmarks::crtp::impl>>();
+        benchmark.template operator()<work_pointer>("crtp", facade);
     }
 
     {

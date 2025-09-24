@@ -86,56 +86,6 @@ namespace spore
         }
     };
 
-//    struct proxy_storage_allocation_base
-//    {
-//        proxy_storage_allocation_base() = default;
-//
-//        template <typename value_t, typename... args_t>
-//        explicit proxy_storage_allocation_base(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
-//        {
-//            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
-//            _ptr = _dispatch->allocate();
-//            std::construct_at(reinterpret_cast<value_t*>(_ptr), std::forward<args_t>(args)...);
-//        }
-//
-//        proxy_storage_allocation_base(const proxy_storage_allocation_base&) SPORE_PROXY_THROW_SPEC = delete;
-//        proxy_storage_allocation_base(proxy_storage_allocation_base&&) SPORE_PROXY_THROW_SPEC = delete;
-//
-//        proxy_storage_allocation_base& operator=(const proxy_storage_allocation_base&) SPORE_PROXY_THROW_SPEC = delete;
-//        proxy_storage_allocation_base& operator=(proxy_storage_allocation_base&&) SPORE_PROXY_THROW_SPEC = delete;
-//
-//        ~proxy_storage_allocation_base() noexcept
-//        {
-//            reset();
-//        }
-//
-//        [[nodiscard]] void* ptr() const noexcept
-//        {
-//            return _ptr;
-//        }
-//
-//        void reset() noexcept
-//        {
-//            if (_dispatch != nullptr and _ptr != nullptr)
-//            {
-//                _dispatch->destroy(_ptr);
-//                _dispatch->deallocate(_ptr);
-//                _dispatch = nullptr;
-//                _ptr = nullptr;
-//            }
-//        }
-//
-//        const proxy_storage_dispatch& dispatch() const noexcept
-//        {
-//            SPORE_PROXY_ASSERT(_dispatch != nullptr);
-//            return *_dispatch;
-//        }
-//
-//      private:
-//        const proxy_storage_dispatch* _dispatch = nullptr;
-//        void* _ptr = nullptr;
-//    };
-
     struct proxy_storage_shared
     {
         proxy_storage_shared() = default;
@@ -155,6 +105,7 @@ namespace spore
         std::shared_ptr<void> _ptr;
     };
 
+#if 0
     struct proxy_storage_unique
     {
         proxy_storage_unique() = default;
@@ -209,7 +160,30 @@ namespace spore
         const proxy_storage_dispatch* _dispatch = nullptr;
         void* _ptr = nullptr;
     };
+#else
+    struct proxy_storage_unique
+    {
+        proxy_storage_unique() = default;
 
+        template <typename value_t, typename... args_t>
+        explicit proxy_storage_unique(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
+        {
+            const auto& dispatch = proxy_storage_dispatch::get<value_t>();
+            _ptr = std::unique_ptr<void, void (*)(void*)> {
+                new value_t {std::forward<args_t>(args)...},
+                dispatch.destroy,
+            };
+        }
+
+        [[nodiscard]] void* ptr() const noexcept
+        {
+            return _ptr.get();
+        }
+
+      private:
+        std::unique_ptr<void, void (*)(void*)> _ptr {nullptr, nullptr};
+    };
+#endif
     struct proxy_storage_value
     {
         proxy_storage_value() = default;
