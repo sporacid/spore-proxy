@@ -304,6 +304,25 @@ int main()
         });
     }
 
+    {
+        const benchmarks::spore::impl impl;
+        proxy_view<benchmarks::spore::facade> facade = proxies::make_view<benchmarks::spore::facade>(impl);
+
+        for (std::size_t index = 0; index < warm_iterations; ++index)
+        {
+            std::size_t result = facade.work(work_size);
+            benchmarks::do_not_optimize(result);
+        }
+
+        results.emplace_back() = benchmarks::run_benchmark("spore (view)", [&] {
+            for (std::size_t index = 0; index < work_iterations; ++index)
+            {
+                std::size_t result = facade.work(work_size);
+                benchmarks::do_not_optimize(result);
+            }
+        });
+    }
+
     benchmarks::output_results(results);
     return 0;
 }

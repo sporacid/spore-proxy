@@ -20,11 +20,11 @@ namespace spore
             : proxy_base(proxies::detail::type_index<facade_t, std::decay_t<value_t>>())
         {
             proxies::detail::add_facade<facade_t>();
-            proxies::detail::add_facade_value_once<facade_t, value_t>();
+            proxies::detail::add_facade_value_once<facade_t, std::decay_t<value_t>>();
 
             if constexpr (std::is_const_v<std::remove_reference_t<value_t>>)
             {
-                _ptr = const_cast<value_t*>(std::addressof(value));
+                _ptr = const_cast<std::decay_t<value_t>*>(std::addressof(value));
             }
             else
             {
@@ -135,6 +135,23 @@ namespace spore
         constexpr proxy<facade_t, storage_t> cast_to_proxy(std::index_sequence<indices_v...>) && noexcept(std::is_nothrow_constructible_v<proxy<facade_t, storage_t>, std::in_place_type_t<std::decay_t<value_t>>, args_t&&...>)
         {
             return proxy<facade_t, storage_t> {std::in_place_type<value_t>, std::forward<args_t>(std::get<indices_v>(args))...};
+        }
+    };
+
+    template <typename value_t>
+    struct proxy_view_auto_cast
+    {
+        value_t&& value;
+
+        constexpr explicit proxy_view_auto_cast(value_t&& value)
+            : value(std::forward<value_t&&>(value))
+        {
+        }
+
+        template <typename facade_t>
+        constexpr operator proxy_view<facade_t>() && noexcept(std::is_nothrow_constructible_v<proxy_view<facade_t>, value_t&>)
+        {
+            return proxy_view<facade_t> {std::forward<value_t&&>(value)};
         }
     };
 
@@ -279,6 +296,18 @@ namespace spore
         {
             using decay_value_t = std::decay_t<value_t>;
             return proxy_auto_cast<proxy_storage_unique, decay_value_t, value_t&&> {std::forward<value_t>(value)};
+        }
+
+        template <any_proxy_facade facade_t, typename value_t>
+        constexpr proxy_view<facade_t> make_view(value_t&& value) noexcept(std::is_nothrow_constructible_v<proxy_view<facade_t>, value_t&&>)
+        {
+            return proxy_view<facade_t> {std::forward<value_t>(value)};
+        }
+
+        template <typename value_t>
+        constexpr auto make_view(value_t&& value)
+        {
+            return proxy_view_auto_cast<value_t&&> {std::forward<value_t&&>(value)};
         }
     }
 }
