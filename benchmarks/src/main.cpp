@@ -1,5 +1,6 @@
 #include "spore/proxy/proxy.hpp"
 
+#include "dyno.hpp"
 #include "proxy/proxy.h"
 
 #include <chrono>
@@ -131,6 +132,20 @@ namespace spore::benchmarks
         };
     }
 
+    namespace dyno_
+    {
+        DYNO_INTERFACE(facade,
+            (work, std::size_t(std::size_t) const));
+
+        struct impl
+        {
+            std::size_t work(const std::size_t size) const noexcept
+            {
+                return do_work(size);
+            }
+        };
+    }
+
     namespace spore
     {
         struct facade : proxy_facade<facade>
@@ -138,7 +153,7 @@ namespace spore::benchmarks
             std::size_t work(const std::size_t size) const noexcept
             {
                 constexpr auto func = [](auto& self, const std::size_t size) { return self.work(size); };
-                return proxies::dispatch<int>(func, *this, size);
+                return proxies::dispatch<std::size_t>(func, *this, size);
             }
         };
 
@@ -198,7 +213,7 @@ int main()
 {
     using namespace spore;
 
-    constexpr std::size_t warm_iterations = 1000;
+    constexpr std::size_t warm_iterations = 1;
     constexpr std::size_t work_iterations = 100000000;
     constexpr std::size_t work_size = 100;
 
@@ -233,6 +248,38 @@ int main()
     //    }
 
     std::vector<benchmarks::result> results;
+
+//    const auto benchmark = [&]<bool arrow_v>(const auto& facade, const auto& name) {
+//        for (std::size_t index = 0; index < warm_iterations; ++index)
+//        {
+//            if constexpr (arrow_v)
+//            {
+//                std::size_t result = facade->work(work_size);
+//                benchmarks::do_not_optimize(result);
+//            }
+//            else
+//            {
+//                std::size_t result = facade.work(work_size);
+//                benchmarks::do_not_optimize(result);
+//            }
+//        }
+//
+//        results.emplace_back() = benchmarks::run_benchmark("name", [&] {
+//            for (std::size_t index = 0; index < work_iterations; ++index)
+//            {
+//                if constexpr (arrow_v)
+//                {
+//                    std::size_t result = facade->work(work_size);
+//                    benchmarks::do_not_optimize(result);
+//                }
+//                else
+//                {
+//                    std::size_t result = facade.work(work_size);
+//                    benchmarks::do_not_optimize(result);
+//                }
+//            }
+//        });
+//    };
 
     {
         std::unique_ptr<benchmarks::non_virtual::facade> facade = std::make_unique<benchmarks::non_virtual::facade>();
@@ -307,6 +354,24 @@ int main()
     }
 
     {
+        benchmarks::dyno_::facade facade {benchmarks::dyno_::impl {}};
+
+        for (std::size_t index = 0; index < warm_iterations; ++index)
+        {
+            std::size_t result = facade.work(work_size);
+            benchmarks::do_not_optimize(result);
+        }
+
+        results.emplace_back() = benchmarks::run_benchmark("dyno", [&] {
+            for (std::size_t index = 0; index < work_iterations; ++index)
+            {
+                std::size_t result = facade.work(work_size);
+                benchmarks::do_not_optimize(result);
+            }
+        });
+    }
+
+    {
         unique_proxy<benchmarks::spore::facade> facade = proxies::make_unique<benchmarks::spore::facade, benchmarks::spore::impl>();
 
         for (std::size_t index = 0; index < warm_iterations; ++index)
@@ -316,6 +381,24 @@ int main()
         }
 
         results.emplace_back() = benchmarks::run_benchmark("spore", [&] {
+            for (std::size_t index = 0; index < work_iterations; ++index)
+            {
+                std::size_t result = facade.work(work_size);
+                benchmarks::do_not_optimize(result);
+            }
+        });
+    }
+
+    {
+        auto facade = proxies::make_inline<benchmarks::spore::facade, benchmarks::spore::impl>();
+
+        for (std::size_t index = 0; index < warm_iterations; ++index)
+        {
+            std::size_t result = facade.work(work_size);
+            benchmarks::do_not_optimize(result);
+        }
+
+        results.emplace_back() = benchmarks::run_benchmark("spore (inline)", [&] {
             for (std::size_t index = 0; index < work_iterations; ++index)
             {
                 std::size_t result = facade.work(work_size);

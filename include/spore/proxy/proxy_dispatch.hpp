@@ -54,32 +54,6 @@ namespace spore
             };
         };
 
-        //        template <typename value_t, typename mapping_t>
-        //        void* get_mapping_ptr() noexcept
-        //        {
-        //            constexpr auto unwrap_mapping = []</*typename facade_t, */ typename func_t, typename self_t, typename return_t, typename... args_t>(const dispatch_mapping</*facade_t, */ func_t, self_t, return_t(args_t...)>) {
-        //                using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
-        //                constexpr auto func = [](void_t* ptr, args_t... args) -> return_t {
-        //                    if constexpr (std::is_const_v<std::remove_reference_t<self_t>>)
-        //                    {
-        //                        return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t&&>(args)...);
-        //                    }
-        //                    else if constexpr (std::is_lvalue_reference_v<self_t>)
-        //                    {
-        //                        return func_t {}(*static_cast<value_t*>(ptr), std::forward<args_t&&>(args)...);
-        //                    }
-        //                    else
-        //                    {
-        //                        return func_t {}(std::move(*static_cast<value_t*>(ptr)), std::forward<args_t&&>(args)...);
-        //                    }
-        //                };
-        //
-        //                return reinterpret_cast<void*>(+func);
-        //            };
-        //
-        //            return unwrap_mapping(mapping_t {});
-        //        }
-
         template <typename tag_t>
         struct index_impl
         {
@@ -242,7 +216,9 @@ namespace spore
             SPORE_PROXY_ASSERT(mapping_index < width_v);
             SPORE_PROXY_ASSERT(type_index < height_v);
 
-            return ptrs[facade_index][type_index][mapping_index];
+            const std::uint32_t ptr_index = (facade_index * facades_v * value_v) + (mapping_index * value_v) + type_index;
+            return ptrs2[ptr_index];
+            // return ptrs[facade_index][type_index][mapping_index];
         }
 
         static void set_ptr(const std::uint32_t facade_index, const std::uint32_t mapping_index, const std::uint32_t type_index, void* ptr) noexcept
@@ -250,10 +226,13 @@ namespace spore
             SPORE_PROXY_ASSERT(mapping_index < width_v);
             SPORE_PROXY_ASSERT(type_index < height_v);
 
-            ptrs[facade_index][type_index][mapping_index] = ptr;
+            const std::uint32_t ptr_index = (facade_index * facades_v * value_v) + (mapping_index * value_v) + type_index;
+            ptrs2[ptr_index] = ptr;
+            // ptrs[facade_index][type_index][mapping_index] = ptr;
         }
 
         static inline void* ptrs[facades_v][value_v][mapping_v];
+        static inline void* ptrs2[facades_v * value_v * mapping_v];
     };
 
     template <std::size_t size_v, typename mutex_t = proxies::detail::spin_lock>
@@ -751,12 +730,12 @@ namespace spore
                 using dispatch_t = proxy_dispatch_default;
                 using once_tag_t = proxies::detail::once_tag<value_t, mapping_t>;
 
-                [[maybe_unused]] static thread_local const once<once_tag_t> once = [] {
+                [[maybe_unused]] static const once<once_tag_t> once = [] {
                     dispatch_t::set_ptr(
                         proxies::detail::facade_index<facade_t>(),
                         proxies::detail::mapping_index<mapping_t>(),
                         proxies::detail::type_index<value_t>(),
-                        mapping_t::template func<value_t>);
+                        (void*) mapping_t::template func<value_t>);
                 };
             }
 
@@ -768,7 +747,7 @@ namespace spore
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
 
-                [[maybe_unused]] static thread_local const once<once_tag_t> once = [] {
+                [[maybe_unused]] static const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::mapping_tag<facade_t>>([]<typename mapping_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });
@@ -787,7 +766,7 @@ namespace spore
                 proxies::detail::add_facade<facade_t>();
                 proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
 
-                [[maybe_unused]] static thread_local const once<once_tag_t> once = [] {
+                [[maybe_unused]] static const once<once_tag_t> once = [] {
                     proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
                         proxies::detail::add_value_mapping_once<value_t, mapping_t>();
                     });

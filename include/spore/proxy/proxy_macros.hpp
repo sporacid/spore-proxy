@@ -41,7 +41,7 @@
                 }                                                              \
             } while (false)
 #    else
-#        define SPORE_PROXY_ASSERT(Cond)
+#        define SPORE_PROXY_ASSERT(Cond) (void) 0
 #    endif
 #endif
 
