@@ -5,6 +5,7 @@
 #include <concepts>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <variant>
 
@@ -15,7 +16,6 @@ namespace spore
     concept any_proxy_storage = requires(const storage_t& storage)
     {
         std::is_default_constructible_v<storage_t>;
-        { storage_t(std::in_place_type<std::byte>, static_cast<std::byte>(0)) };
         { storage.ptr() } -> std::same_as<void*>;
     };
     // clang-format on
@@ -223,132 +223,21 @@ namespace spore
         void* _ptr = nullptr;
     };
 
-    template <std::size_t size_v, std::size_t align_v = alignof(void*)>
+    template <typename value_t>
     struct proxy_storage_inline
     {
-        static_assert(size_v > 0);
-        static_assert(align_v <= size_v);
-
-        template <typename value_t>
-        static consteval bool is_compatible()
+        template <typename... args_t>
+        constexpr explicit proxy_storage_inline(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
-            constexpr bool is_size_compatible = sizeof(value_t) <= size_v;
-            constexpr bool is_alignment_compatible = align_v % alignof(value_t) == 0;
-            return is_size_compatible and is_alignment_compatible;
-        }
-
-        constexpr proxy_storage_inline() = default;
-
-        template <typename value_t, typename... args_t>
-        constexpr explicit proxy_storage_inline(std::in_place_type_t<value_t>, args_t&&... args) requires(is_compatible<value_t>()) SPORE_PROXY_THROW_SPEC
-        {
-            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
-
-            auto* ptr = reinterpret_cast<value_t*>(std::addressof(_storage));
-            std::construct_at(ptr, std::forward<args_t>(args)...);
-        }
-
-        constexpr proxy_storage_inline(const proxy_storage_inline& other) SPORE_PROXY_THROW_SPEC
-        {
-            _dispatch = other._dispatch;
-
-            if (_dispatch != nullptr)
-            {
-                _dispatch->copy(ptr(), other.ptr());
-            }
-        }
-
-        constexpr proxy_storage_inline(proxy_storage_inline&& other) noexcept
-        {
-            _dispatch = other._dispatch;
-
-            if (_dispatch != nullptr)
-            {
-                _dispatch->move(ptr(), other.ptr());
-            }
-        }
-
-        constexpr ~proxy_storage_inline() noexcept
-        {
-            if (_dispatch != nullptr)
-            {
-                _dispatch->destroy(ptr());
-            }
-        }
-
-        constexpr proxy_storage_inline& operator=(const proxy_storage_inline& other) SPORE_PROXY_THROW_SPEC
-        {
-            reset();
-
-            _dispatch = other._dispatch;
-
-            if (_dispatch != nullptr)
-            {
-                _dispatch->copy(ptr(), other.ptr());
-            }
-
-            return *this;
-        }
-
-        constexpr proxy_storage_inline& operator=(proxy_storage_inline&& other) SPORE_PROXY_THROW_SPEC
-        {
-            reset();
-
-            _dispatch = other._dispatch;
-
-            if (_dispatch != nullptr)
-            {
-                _dispatch->move(ptr(), other.ptr());
-            }
-
-            return *this;
+            value.emplace(std::forward<args_t>(args)...);
         }
 
         [[nodiscard]] constexpr void* ptr() const noexcept
         {
-            return const_cast<std::byte*>(std::addressof(_storage[0]));
-        }
-
-        void reset() noexcept
-        {
-            if (_dispatch != nullptr)
-            {
-                _dispatch->destroy(ptr());
-                _dispatch = nullptr;
-            }
+            return std::addressof(value.value());
         }
 
       private:
-        alignas(align_v) std::byte _storage[size_v];
-        const proxy_storage_dispatch* _dispatch = nullptr;
-    };
-
-    template <any_proxy_storage fallback_storage_t, std::size_t size_v = sizeof(fallback_storage_t), std::size_t align_v = alignof(void*)>
-    struct proxy_storage_inline_or
-    {
-        proxy_storage_inline_or() = default;
-
-        template <typename value_t, typename... args_t>
-        explicit proxy_storage_inline_or(std::in_place_type_t<value_t> type, args_t&&... args) SPORE_PROXY_THROW_SPEC
-        {
-            if constexpr (inline_storage_t::template is_compatible<value_t>())
-            {
-                _storage.template emplace<inline_storage_t>(type, std::forward<args_t>(args)...);
-            }
-            else
-            {
-                _storage.template emplace<fallback_storage_t>(type, std::forward<args_t>(args)...);
-            }
-        }
-
-        [[nodiscard]] void* ptr() const noexcept
-        {
-            constexpr auto visitor = [](const auto& storage) { return storage.ptr(); };
-            return std::visit(visitor, _storage);
-        }
-
-      private:
-        using inline_storage_t = proxy_storage_inline<size_v, align_v>;
-        std::variant<proxy_storage_invalid, inline_storage_t, fallback_storage_t> _storage;
+        mutable std::optional<value_t> value;
     };
 }

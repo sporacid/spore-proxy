@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <optional>
 
 namespace spore
 {
@@ -9,7 +10,7 @@ namespace spore
     {
         proxy_base() noexcept
             : _ptr(nullptr),
-              _type_index(std::numeric_limits<std::uint32_t>::max())
+              _type_index(std::nullopt)
         {
         }
 
@@ -31,11 +32,11 @@ namespace spore
 
         [[nodiscard]] std::uint32_t type_index() const noexcept
         {
-            return _type_index;
+            return _type_index.value();
         }
 
       protected:
         void* _ptr;
-        std::uint32_t _type_index;
+        std::optional<std::uint32_t> _type_index;
     };
 }

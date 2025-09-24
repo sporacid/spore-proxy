@@ -186,149 +186,79 @@ int main()
 
     std::vector<benchmarks::result> results;
 
-    {
-        std::unique_ptr<benchmarks::non_virtual::facade> facade = std::make_unique<benchmarks::non_virtual::facade>();
-
+    const auto benchmark = [&]<auto work_v>(const auto name, const auto& facade) {
         for (std::size_t index = 0; index < warm_iterations; ++index)
         {
-            std::size_t result = facade->work(work_size);
+            std::size_t result = work_v(facade, work_size);
             benchmarks::do_not_optimize(result);
         }
 
-        results.emplace_back() = benchmarks::run_benchmark("non virtual", [&] {
+        results.emplace_back() = benchmarks::run_benchmark(name, [&] {
             for (std::size_t index = 0; index < work_iterations; ++index)
             {
-                std::size_t result = facade->work(work_size);
+                std::size_t result = work_v(facade, work_size);
                 benchmarks::do_not_optimize(result);
             }
         });
+    };
+
+    constexpr auto work_pointer = [](const auto& facade, const auto work_size) {
+        return facade->work(work_size);
+    };
+
+    constexpr auto work_value = [](const auto& facade, const auto work_size) {
+        return facade.work(work_size);
+    };
+
+    {
+        std::unique_ptr<benchmarks::non_virtual::facade> facade = std::make_unique<benchmarks::non_virtual::facade>();
+        benchmark.template operator()<work_pointer>("non-virtual", facade);
     }
 
     {
         std::unique_ptr<benchmarks::virtual_::facade> facade = std::make_unique<benchmarks::virtual_::impl>();
-
-        for (std::size_t index = 0; index < warm_iterations; ++index)
-        {
-            std::size_t result = facade->work(work_size);
-            benchmarks::do_not_optimize(result);
-        }
-
-        results.emplace_back() = benchmarks::run_benchmark("virtual", [&] {
-            for (std::size_t index = 0; index < work_iterations; ++index)
-            {
-                std::size_t result = facade->work(work_size);
-                benchmarks::do_not_optimize(result);
-            }
-        });
+        benchmark.template operator()<work_pointer>("virtual", facade);
     }
 
     {
         std::unique_ptr<benchmarks::functional::facade> facade = std::make_unique<benchmarks::functional::impl>();
-
-        for (std::size_t index = 0; index < warm_iterations; ++index)
-        {
-            std::size_t result = facade->work(work_size);
-            benchmarks::do_not_optimize(result);
-        }
-
-        results.emplace_back() = benchmarks::run_benchmark("functional", [&] {
-            for (std::size_t index = 0; index < work_iterations; ++index)
-            {
-                std::size_t result = facade->work(work_size);
-                benchmarks::do_not_optimize(result);
-            }
-        });
+        benchmark.template operator()<work_pointer>("functional", facade);
     }
 
     {
         pro::proxy<benchmarks::microsoft::facade> facade = std::make_unique<benchmarks::microsoft::impl>();
-
-        for (std::size_t index = 0; index < warm_iterations; ++index)
-        {
-            std::size_t result = facade->work(work_size);
-            benchmarks::do_not_optimize(result);
-        }
-
-        results.emplace_back() = benchmarks::run_benchmark("microsoft", [&] {
-            for (std::size_t index = 0; index < work_iterations; ++index)
-            {
-                std::size_t result = facade->work(work_size);
-                benchmarks::do_not_optimize(result);
-            }
-        });
+        benchmark.template operator()<work_pointer>("microsoft", facade);
     }
 
     {
         benchmarks::dyno_::facade facade {benchmarks::dyno_::impl {}};
-
-        for (std::size_t index = 0; index < warm_iterations; ++index)
-        {
-            std::size_t result = facade.work(work_size);
-            benchmarks::do_not_optimize(result);
-        }
-
-        results.emplace_back() = benchmarks::run_benchmark("dyno", [&] {
-            for (std::size_t index = 0; index < work_iterations; ++index)
-            {
-                std::size_t result = facade.work(work_size);
-                benchmarks::do_not_optimize(result);
-            }
-        });
+        benchmark.template operator()<work_value>("dyno", facade);
     }
 
     {
         unique_proxy<benchmarks::spore::facade> facade = proxies::make_unique(benchmarks::spore::impl {});
+        benchmark.template operator()<work_value>("spore (unique)", facade);
+    }
 
-        for (std::size_t index = 0; index < warm_iterations; ++index)
-        {
-            std::size_t result = facade.work(work_size);
-            benchmarks::do_not_optimize(result);
-        }
+    {
+        shared_proxy<benchmarks::spore::facade> facade = proxies::make_shared(benchmarks::spore::impl {});
+        benchmark.template operator()<work_value>("spore (shared)", facade);
+    }
 
-        results.emplace_back() = benchmarks::run_benchmark("spore", [&] {
-            for (std::size_t index = 0; index < work_iterations; ++index)
-            {
-                std::size_t result = facade.work(work_size);
-                benchmarks::do_not_optimize(result);
-            }
-        });
+    {
+        value_proxy<benchmarks::spore::facade> facade = proxies::make_value(benchmarks::spore::impl {});
+        benchmark.template operator()<work_value>("spore (value)", facade);
     }
 
     {
         inline_proxy<benchmarks::spore::facade, benchmarks::spore::impl> facade = proxies::make_inline(benchmarks::spore::impl {});
-
-        for (std::size_t index = 0; index < warm_iterations; ++index)
-        {
-            std::size_t result = facade.work(work_size);
-            benchmarks::do_not_optimize(result);
-        }
-
-        results.emplace_back() = benchmarks::run_benchmark("spore (inline)", [&] {
-            for (std::size_t index = 0; index < work_iterations; ++index)
-            {
-                std::size_t result = facade.work(work_size);
-                benchmarks::do_not_optimize(result);
-            }
-        });
+        benchmark.template operator()<work_value>("spore (inline)", facade);
     }
 
     {
         const benchmarks::spore::impl impl;
         proxy_view<benchmarks::spore::facade> facade = proxies::make_view<benchmarks::spore::facade>(impl);
-
-        for (std::size_t index = 0; index < warm_iterations; ++index)
-        {
-            std::size_t result = facade.work(work_size);
-            benchmarks::do_not_optimize(result);
-        }
-
-        results.emplace_back() = benchmarks::run_benchmark("spore (view)", [&] {
-            for (std::size_t index = 0; index < work_iterations; ++index)
-            {
-                std::size_t result = facade.work(work_size);
-                benchmarks::do_not_optimize(result);
-            }
-        });
+        benchmark.template operator()<work_value>("spore (view)", facade);
     }
 
     benchmarks::output_results(results);
