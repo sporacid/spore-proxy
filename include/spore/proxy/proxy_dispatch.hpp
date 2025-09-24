@@ -201,7 +201,7 @@ namespace spore
                 using facade_t = typename mapping_t::facade_type;
                 using tag_t = proxies::detail::once_tag<value_t, mapping_t>;
 
-                [[maybe_unused]] static const once<tag_t> once = [] {
+                [[maybe_unused]] static thread_local const once<tag_t> once = [] {
                     void* ptr = reinterpret_cast<void*>(+mapping_t::template func<value_t>);
                     proxy_dispatch::set_ptr<facade_t, mapping_t>(proxies::detail::type_index<facade_t, value_t>(), ptr);
                 };
@@ -212,7 +212,7 @@ namespace spore
             {
                 using tag_t = proxies::detail::once_tag<facade_t, value_t>;
 
-                [[maybe_unused]] static const once<tag_t> once = [] {
+                [[maybe_unused]] static thread_local const once<tag_t> once = [] {
                     proxies::detail::add_facade<facade_t>();
                     proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
 
@@ -231,7 +231,7 @@ namespace spore
             {
                 using tag_t = proxies::detail::once_tag<facade_t, mapping_t>;
 
-                [[maybe_unused]] static const once<tag_t> once = [] {
+                [[maybe_unused]] static thread_local const once<tag_t> once = [] {
                     proxies::detail::add_facade<facade_t>();
                     proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
 

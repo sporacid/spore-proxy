@@ -53,6 +53,12 @@ namespace spore::proxies::detail
         };
 
         template <typename value_t, typename... values_t>
+        consteval bool pack_contains()
+        {
+            return (std::is_same_v<value_t, values_t> or ...);
+        }
+
+        template <typename value_t, typename... values_t>
         consteval auto emplace_impl(type_set<values_t...>)
         {
             if constexpr (pack_contains<value_t, values_t...>())
