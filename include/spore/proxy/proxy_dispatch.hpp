@@ -38,18 +38,18 @@ namespace spore
             using facade_type = facade_t;
 
             template <typename value_t>
-            static constexpr auto func = [](void* ptr, args_t... args) -> return_t {
+            static constexpr auto func = [](void* ptr, args_t&&... args) -> return_t {
                 if constexpr (std::is_const_v<std::remove_reference_t<self_t>>)
                 {
-                    return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t&&>(args)...);
+                    return func_t {}(*static_cast<const value_t*>(ptr), std::forward<args_t>(args)...);
                 }
                 else if constexpr (std::is_lvalue_reference_v<self_t>)
                 {
-                    return func_t {}(*static_cast<value_t*>(ptr), std::forward<args_t&&>(args)...);
+                    return func_t {}(*static_cast<value_t*>(ptr), std::forward<args_t>(args)...);
                 }
                 else
                 {
-                    return func_t {}(std::move(*static_cast<value_t*>(ptr)), std::forward<args_t&&>(args)...);
+                    return func_t {}(std::move(*static_cast<value_t*>(ptr)), std::forward<args_t>(args)...);
                 }
             };
         };
@@ -57,12 +57,10 @@ namespace spore
         template <typename tag_t>
         struct index_impl
         {
-          private:
-            static inline std::atomic<std::uint32_t> _counter;
+            static inline std::atomic<std::uint32_t> seed;
 
-          public:
             template <typename value_t>
-            static inline std::uint32_t value = _counter++;
+            static inline std::uint32_t value = seed++;
         };
 
         struct facade_index_tag;
@@ -76,18 +74,21 @@ namespace spore
         template <typename facade_t>
         std::uint32_t facade_index()
         {
+            // return counters::get<facade_t>();
             return index_impl<facade_index_tag>::value<facade_t>;
         }
 
         template <typename facade_t, typename mapping_t>
         std::uint32_t mapping_index()
         {
+            // return counters::get<mapping_index_tag<facade_t>>();
             return index_impl<mapping_index_tag<facade_t>>::template value<mapping_t>;
         }
 
         template <typename facade_t, typename value_t>
         std::uint32_t type_index()
         {
+            // return counters::get<mapping_index_tag<facade_t>>();
             return index_impl<type_index_tag<facade_t>>::template value<value_t>;
         }
 #if 0
@@ -210,6 +211,35 @@ namespace spore
 
         static inline mutex_t _mutex;
         static inline thread_local unordered_map_t<dispatch_key, void*, dispatch_hash> _ptr_map;
+    };
+
+    template <std::size_t max_type_v>
+    struct proxy_dispatch_static4
+    {
+        template <typename facade_t, typename mapping_t>
+        static void* get_ptr(const std::uint32_t type_index) noexcept
+        {
+            SPORE_PROXY_ASSERT(type_index < max_type_v);
+            return ptrs<facade_t, mapping_t>[type_index];
+        }
+
+        template <typename facade_t, typename mapping_t>
+        static void set_ptr(const std::uint32_t type_index, void* ptr) noexcept
+        {
+            SPORE_PROXY_ASSERT(mapping_index < max_mapping_v);
+            SPORE_PROXY_ASSERT(type_index < max_type_v);
+
+            ptrs<facade_t, mapping_t>[type_index] = ptr;
+        }
+
+        template <typename facade_t, typename value_t>
+        static void** get_ptr_base()
+        {
+            return nullptr;
+        }
+
+        template <typename facade_t, typename mapping_t>
+        static inline void* ptrs[max_type_v];
     };
 
     template <std::size_t max_mapping_v, std::size_t max_type_v>
@@ -650,7 +680,7 @@ namespace spore
     };
 #endif
 
-    using proxy_dispatch_default = proxy_dispatch_static3<64, 64>;
+    using proxy_dispatch_default = proxy_dispatch_static4<64>;
 
     namespace proxies
     {
@@ -773,10 +803,7 @@ namespace spore
 
                 [[maybe_unused]] static const once<once_tag_t> once = [] {
                     void* ptr = reinterpret_cast<void*>(+mapping_t::template func<value_t>);
-                    dispatch_t::set_ptr<facade_t>(
-                        proxies::detail::mapping_index<facade_t, mapping_t>(),
-                        proxies::detail::type_index<facade_t, value_t>(),
-                        ptr);
+                    dispatch_t::set_ptr<facade_t, mapping_t>(proxies::detail::type_index<facade_t, value_t>(), ptr);
                 };
             }
 
@@ -859,10 +886,17 @@ namespace spore
                 proxy_base_t& proxy = reinterpret_cast<proxy_base_t&>(self);
 
 #if 0
-
                 using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
                 const auto index = proxies::detail::mapping_index<facade_t, mapping_t>();
-                const auto func = reinterpret_cast<return_t(*const)(void_t*, args_t...)>(proxy.vptr()[index]);
+                const auto func = reinterpret_cast<return_t (*const)(void_t*, args_t&&...)>(proxy.vptr()[index]);
+                return func(proxy.ptr(), std::forward<args_t>(args)...);
+#elif 1
+                void* ptr = dispatch_t::get_ptr<facade_t, mapping_t>(proxy.type_index());
+
+                SPORE_PROXY_ASSERT(ptr != nullptr);
+
+                using void_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
+                const auto func = reinterpret_cast<return_t (*)(void_t*, args_t...)>(ptr);
                 return func(proxy.ptr(), std::forward<args_t>(args)...);
 #else
                 void* ptr = dispatch_t::get_ptr<facade_t>(proxies::detail::mapping_index<facade_t, mapping_t>(), proxy.type_index());

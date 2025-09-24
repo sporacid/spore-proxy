@@ -43,5 +43,5 @@ function(add_benchmark_target TARGET_NAME DISPATCH_TYPE)
   )
 endfunction()
 
-add_benchmark_target(${PROJECT_NAME}.benchmarks.static "spore::proxy_dispatch_static3<64, 64>")
+add_benchmark_target(${PROJECT_NAME}.benchmarks.static "spore::proxy_dispatch_static4<64>")
 add_benchmark_target(${PROJECT_NAME}.benchmarks.dynamic "spore::proxy_dispatch_dynamic<>")

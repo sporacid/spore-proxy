@@ -306,7 +306,7 @@ namespace spore
 
         [[nodiscard]] constexpr void* ptr() const noexcept
         {
-            return const_cast<std::byte*>(std::addressof(_storage[0]));
+            return const_cast<std::byte*>(&_storage[0]);
         }
 
         void reset() noexcept
@@ -319,11 +319,11 @@ namespace spore
         }
 
       private:
+        alignas(align_v) std::byte _storage[size_v];
         const proxy_storage_dispatch* _dispatch = nullptr;
-        alignas(align_v) std::byte _storage[size_v] {};
     };
 
-    template <any_proxy_storage storage_t, std::size_t size_v = sizeof(storage_t), std::size_t align_v = alignof(void*)>
+    template <any_proxy_storage fallback_storage_t, std::size_t size_v = sizeof(fallback_storage_t), std::size_t align_v = alignof(void*)>
     struct proxy_storage_inline_or
     {
         proxy_storage_inline_or() = default;
@@ -331,24 +331,48 @@ namespace spore
         template <typename value_t, typename... args_t>
         explicit proxy_storage_inline_or(std::in_place_type_t<value_t> type, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
-            if constexpr (storage_inline_t::template is_compatible<value_t>())
+            if constexpr (proxy_storage_inline<size_v, align_v>::template is_compatible<value_t>())
             {
-                _storage.template emplace<storage_inline_t>(type, std::forward<args_t>(args)...);
+                _storage = proxy_storage_inline<size_v, align_v> {type, std::forward<args_t>(args)...};
+                _type = storage_type::inline_;
             }
             else
             {
-                _storage.template emplace<storage_t>(type, std::forward<args_t>(args)...);
+                _storage = fallback_storage_t {type, std::forward<args_t>(args)...};
+                _type = storage_type::fallback;
             }
         }
 
         [[nodiscard]] void* ptr() const noexcept
         {
-            constexpr auto visitor = [](const auto& storage) { return storage.ptr(); };
-            return std::visit(visitor, _storage);
+            switch (_type)
+            {
+                case storage_type::inline_:
+                    return _storage.inline_storage.ptr();
+                case storage_type::fallback:
+                    return _storage.fallback_storage.ptr();
+                default:
+                    SPORE_PROXY_ASSERT(false);
+                    return nullptr;
+            }
         }
 
       private:
-        using storage_inline_t = proxy_storage_inline<size_v, align_v>;
-        std::variant<proxy_storage_invalid, storage_inline_t, storage_t> _storage;
+        enum class storage_type : std::uint8_t
+        {
+            inline_,
+            fallback,
+        };
+
+        union storage_union
+        {
+            proxy_storage_inline<size_v, align_v> inline_storage;
+            fallback_storage_t fallback_storage;
+        };
+
+        storage_type _type;
+        storage_union _storage;
+        // using storage_inline_t = proxy_storage_inline<size_v, align_v>;
+        // std::variant<proxy_storage_invalid, storage_inline_t, storage_t> _storage;
     };
 }
