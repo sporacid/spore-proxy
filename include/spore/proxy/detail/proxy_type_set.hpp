@@ -1,7 +1,5 @@
 #pragma once
 
-#include "spore/proxy/detail/proxy_counter.hpp"
-
 #include <algorithm>
 #include <cstddef>
 

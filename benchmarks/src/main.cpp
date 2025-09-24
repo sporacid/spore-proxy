@@ -1,5 +1,6 @@
 #include "spore/proxy/proxy.hpp"
 
+#include "avask/some.hpp"
 #include "dyno.hpp"
 #include "proxy/proxy.h"
 
@@ -155,6 +156,22 @@ namespace spore::benchmarks
         };
     }
 
+    namespace avask
+    {
+        struct facade : vx::trait
+        {
+            virtual std::size_t work(std::size_t) const noexcept = 0;
+        };
+
+        struct impl
+        {
+            std::size_t work(const std::size_t size) const noexcept
+            {
+                return do_work(size);
+            }
+        };
+    }
+
     namespace spore
     {
         struct facade : proxy_facade<facade>
@@ -175,6 +192,18 @@ namespace spore::benchmarks
         };
     }
 }
+
+template <typename value_t>
+struct vx::impl<spore::benchmarks::avask::facade, value_t> final : impl_for<spore::benchmarks::avask::facade, value_t>
+{
+    using impl_for<spore::benchmarks::avask::facade, spore::benchmarks::avask::impl>::impl_for;
+    using impl_for<spore::benchmarks::avask::facade, spore::benchmarks::avask::impl>::self;
+
+    std::size_t work(const std::size_t size) const noexcept
+    {
+        return vx::poly {this}->work(size);
+    }
+};
 
 int main()
 {
@@ -228,6 +257,11 @@ int main()
     {
         pro::proxy<benchmarks::microsoft::facade> facade = std::make_unique<benchmarks::microsoft::impl>();
         benchmark.template operator()<work_pointer>("microsoft", facade);
+    }
+
+    {
+        vx::some<benchmarks::avask::facade> facade = benchmarks::avask::impl {};
+        benchmark.template operator()<work_pointer>("avask", facade);
     }
 
     {
