@@ -1,8 +1,13 @@
 #include "spore/proxy/proxy.hpp"
 
 #include "avask/some.hpp"
-#include "dyno.hpp"
 #include "proxy/proxy.h"
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#    include "dyno.hpp"
+#else
+#    include <intrin.h>
+#endif
 
 #include <chrono>
 #include <format>
@@ -23,8 +28,12 @@ namespace spore::benchmarks
     {
 #if defined(__clang__)
         asm volatile("" : "+r,m"(value) : : "memory");
-#else
+#elif defined(__GNUC__)
         asm volatile("" : "+m,r"(value) : : "memory");
+#elif defined(_MSC_VER)
+        _ReadWriteBarrier();
+        (void) value;
+        _ReadWriteBarrier();
 #endif
     }
 
@@ -162,6 +171,7 @@ namespace spore::benchmarks
         };
     }
 
+#if defined(_MSC_VER) && !defined(__clang__)
     namespace dyno_
     {
         DYNO_INTERFACE(facade,
@@ -175,6 +185,7 @@ namespace spore::benchmarks
             }
         };
     }
+#endif
 
     namespace avask
     {
@@ -230,7 +241,7 @@ int main()
     using namespace spore;
 
     constexpr std::size_t warm_iterations = 100;
-    constexpr std::size_t work_iterations = 1000000000;
+    constexpr std::size_t work_iterations = 100000000;
     constexpr std::size_t work_size = 100;
 
     std::vector<benchmarks::result> results;
@@ -289,10 +300,12 @@ int main()
         benchmark.template operator()<work_pointer>("avask", facade);
     }
 
+#if defined(_MSC_VER) && !defined(__clang__)
     {
         benchmarks::dyno_::facade facade {benchmarks::dyno_::impl {}};
         benchmark.template operator()<work_value>("dyno", facade);
     }
+#endif
 
     {
         unique_proxy<benchmarks::spore::facade> facade = proxies::make_unique(benchmarks::spore::impl {});
