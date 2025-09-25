@@ -95,58 +95,11 @@ namespace spore
             {
             }
 
-//            constexpr dispatcher_storage(const dispatcher_storage& other) noexcept
-//                : dispatcher(other.dispatcher)
-//            {
-//            }
-//
-//            constexpr dispatcher_storage& operator=(const dispatcher_type& other) noexcept
-//            {
-//                *this = dispatcher_storage {other};
-//                return *this;
-//            }
-//
-//            constexpr dispatcher_storage& operator=(const dispatcher_storage& other) noexcept
-//            {
-//                *this = dispatcher_storage {other.dispatcher};
-//                return *this;
-//            }
-
             constexpr operator dispatcher_type() const noexcept
             {
                 return dispatcher;
             }
         };
-
-#if 0
-constexpr dispatch_storage()
-                : dispatch(dispatch_type_impl<facade_t, mapping_t>::invalid)
-            {
-            }
-
-            constexpr explicit dispatch_storage(const dispatch_type& dispatch)
-                : dispatch(dispatch)
-            {
-            }
-
-            constexpr dispatch_storage(const dispatch_storage& other)
-                : dispatch(other.dispatch)
-            {
-            }
-
-            constexpr dispatch_storage& operator=(const dispatch_type& dispatch)
-            {
-                *this = dispatch_storage {dispatch};
-                return *this;
-            }
-
-            constexpr dispatch_storage& operator=(const dispatch_storage& other)
-            {
-                *this = dispatch_storage {other.dispatch};
-                return *this;
-            }
-
-#endif
 
         template <typename tag_t>
         struct index_impl
@@ -211,144 +164,13 @@ constexpr dispatch_storage()
             auto& type_dispatcher = dispatchers<facade_t, mapping_t>[type_index];
             std::construct_at(std::addressof(type_dispatcher), dispatcher);
         }
-
-#if 0
-        template <typename facade_t, typename mapping_t>
-        struct dispatch_type_impl;
-
-        template <typename facade_t, typename func_t, typename self_t, typename return_t, typename... args_t>
-        struct dispatch_type_impl<facade_t, proxies::detail::dispatch_mapping<facade_t, func_t, self_t, return_t(args_t...)>>
-        {
-            using void_type = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
-            using type = return_t (&)(void_type*, args_t&&...);
-
-            static constexpr return_t invalid(void_type*, args_t&&...)
-            {
-                SPORE_PROXY_THROW("invalid dispatch");
-            }
-        };
-
-        // template <typename facade_t, typename mapping_t>
-        // static constexpr typename dispatch_type_impl<facade_t, mapping_t>::type invalid;
-
-        // template <typename facade_t, typename mapping_t>
-        // using dispatch_type = typename dispatch_type_impl<facade_t, mapping_t>::type;
-
-        template <typename facade_t, typename mapping_t>
-        struct dispatch_storage
-        {
-            using dispatch_type = typename dispatch_type_impl<facade_t, mapping_t>::type;
-
-            dispatch_type dispatch;
-
-            constexpr dispatch_storage()
-                : dispatch(dispatch_type_impl<facade_t, mapping_t>::invalid)
-            {
-            }
-
-            constexpr dispatch_storage(const dispatch_type& dispatch)
-                : dispatch(dispatch)
-            {
-            }
-
-            constexpr dispatch_storage(const dispatch_storage& other)
-                : dispatch(other.dispatch)
-            {
-            }
-
-            constexpr dispatch_storage& operator=(const dispatch_storage& other)
-            {
-                *this = dispatch_storage {other.dispatch};
-                return *this;
-            }
-
-            //            constexpr dispatch_type get() noexcept
-            //            {
-            //                SPORE_PROXY_ASSERT(valid);
-            //                return reinterpret_cast<dispatch_type&>(storage);
-            //            }
-            //
-            //            constexpr operator dispatch_type() noexcept
-            //            {
-            //                SPORE_PROXY_ASSERT(valid);
-            //                return reinterpret_cast<dispatch_type&>(storage);
-            //            }
-        };
-
-        template <typename tag_t, typename func_t>
-        SPORE_PROXY_FORCE_INLINE static void call_once(const func_t&)
-        {
-            static_assert(std::is_empty_v<func_t>);
-            static_assert(std::is_default_constructible_v<func_t>);
-            [[maybe_unused]] static thread_local const bool once = [] {
-                func_t {}();
-                return true;
-            }();
-        }
-
-        template <typename facade_t, typename mapping_t>
-        SPORE_PROXY_FORCE_INLINE static typename dispatch_type_impl<facade_t, mapping_t>::type get_ptr(const std::uint32_t type_index) noexcept
-        {
-            std::vector<dispatch_storage<facade_t, mapping_t>>& mapping_ptrs = ptrs2<facade_t, mapping_t>;
-            // return type_index < mapping_ptrs.size() ? mapping_ptrs[type_index] : dispatch_type_impl<facade_t, mapping_t>::invalid;
-
-            if (type_index < mapping_ptrs.size())
-            {
-                return mapping_ptrs[type_index].dispatch;
-            }
-            else
-            {
-                return dispatch_type_impl<facade_t, mapping_t>::invalid;
-            }
-
-            // return type_index < mapping_ptrs.size() ? mapping_ptrs[type_index] : dispatch_type_impl<facade_t, mapping_t>::invalid;
-#    if 0
-            const std::vector<void*>& mapping_ptrs = ptrs<facade_t, mapping_t>;
-            return type_index < mapping_ptrs.size() ? mapping_ptrs[type_index] : nullptr;
-#    endif
-        }
-
-        template <typename facade_t, typename mapping_t>
-        SPORE_PROXY_FORCE_INLINE static void set_ptr(const std::uint32_t type_index, typename dispatch_type_impl<facade_t, mapping_t>::type ptr) noexcept
-        {
-            std::vector<dispatch_storage<facade_t, mapping_t>>& mapping_ptrs = ptrs2<facade_t, mapping_t>;
-
-            if (type_index >= mapping_ptrs.size())
-            {
-                const std::size_t new_size = std::max<std::size_t>(type_index + 1, mapping_ptrs.size() * grow_v);
-                mapping_ptrs.resize(new_size);
-            }
-
-            mapping_ptrs.emplace(mapping_ptrs.begin() + type_index, ptr);
-            // mapping_ptrs[type_index] = dispatch_storage<facade_t, mapping_t>{ptr};
-            // mapping_ptrs.emplace(mapping_ptrs.begin() + type_index, ptr);
-            // mapping_ptrs[type_index] = ptr;
-#    if 0
-            std::vector<void*>& mapping_ptrs = ptrs<facade_t, mapping_t>;
-
-            if (type_index >= mapping_ptrs.size())
-            {
-                const std::size_t new_size = std::max<std::size_t>(type_index + 1, mapping_ptrs.size() * grow_v);
-                mapping_ptrs.resize(new_size);
-            }
-
-            mapping_ptrs[type_index] = ptr;
-#    endif
-        }
-
-        template <typename facade_t, typename mapping_t>
-        static inline thread_local std::vector<void*> ptrs {size_v};
-
-        template <typename facade_t, typename mapping_t>
-        static inline thread_local std::vector<dispatch_storage<facade_t, mapping_t>> ptrs2 {size_v};
-#endif
     };
 
     template <std::size_t size_v = 64>
     struct [[maybe_unused]] proxy_dispatch_static
     {
         template <typename facade_t, typename mapping_t>
-        static inline proxies::detail::dispatcher_storage<facade_t, mapping_t> dispatchers[size_v];
+        static inline proxies::detail::dispatcher_storage<facade_t, mapping_t> dispatchers[size_v] {};
 
         template <typename tag_t, typename func_t>
         SPORE_PROXY_FORCE_INLINE static void call_once(const func_t&)
@@ -373,112 +195,6 @@ constexpr dispatch_storage()
             auto& type_dispatcher = dispatchers<facade_t, mapping_t>[type_index];
             std::construct_at(std::addressof(type_dispatcher), dispatcher);
         }
-#if 0
-        template <typename facade_t, typename mapping_t>
-        struct dispatch_type_impl;
-
-        template <typename facade_t, typename func_t, typename self_t, typename return_t, typename... args_t>
-        struct dispatch_type_impl<facade_t, proxies::detail::dispatch_mapping<facade_t, func_t, self_t, return_t(args_t...)>>
-        {
-            using void_type = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const void, void>;
-            using type = return_t (&)(void_type*, args_t&&...);
-
-            static constexpr return_t invalid(void_type*, args_t&&...)
-            {
-                SPORE_PROXY_THROW("invalid dispatch");
-            }
-        };
-
-        template <typename facade_t, typename mapping_t>
-        struct dispatch_storage
-        {
-            using dispatch_type = typename dispatch_type_impl<facade_t, mapping_t>::type;
-
-            dispatch_type dispatch;
-
-            constexpr dispatch_storage()
-                : dispatch(dispatch_type_impl<facade_t, mapping_t>::invalid)
-            {
-            }
-
-            constexpr explicit dispatch_storage(const dispatch_type& dispatch)
-                : dispatch(dispatch)
-            {
-            }
-
-            constexpr dispatch_storage(const dispatch_storage& other)
-                : dispatch(other.dispatch)
-            {
-            }
-
-            constexpr dispatch_storage& operator=(const dispatch_type& dispatch)
-            {
-                *this = dispatch_storage {dispatch};
-                return *this;
-            }
-
-            constexpr dispatch_storage& operator=(const dispatch_storage& other)
-            {
-                *this = dispatch_storage {other.dispatch};
-                return *this;
-            }
-
-            //            constexpr dispatch_type get() noexcept
-            //            {
-            //                SPORE_PROXY_ASSERT(valid);
-            //                return reinterpret_cast<dispatch_type&>(storage);
-            //            }
-            //
-            //            constexpr operator dispatch_type() noexcept
-            //            {
-            //                SPORE_PROXY_ASSERT(valid);
-            //                return reinterpret_cast<dispatch_type&>(storage);
-            //            }
-        };
-
-        template <typename tag_t, typename func_t>
-        SPORE_PROXY_FORCE_INLINE static void call_once(const func_t&)
-        {
-            static_assert(std::is_empty_v<func_t>);
-            static_assert(std::is_default_constructible_v<func_t>);
-            [[maybe_unused]] static const bool once = [] {
-                func_t {}();
-                return true;
-            }();
-        }
-
-        template <typename facade_t, typename mapping_t>
-        SPORE_PROXY_FORCE_INLINE static typename dispatch_type_impl<facade_t, mapping_t>::type get_ptr(const std::uint32_t type_index) noexcept
-        {
-            return ptrs<facade_t, mapping_t>[type_index].dispatch;
-        }
-
-        template <typename facade_t, typename mapping_t>
-        SPORE_PROXY_FORCE_INLINE static void set_ptr(const std::uint32_t type_index, typename dispatch_type_impl<facade_t, mapping_t>::type ptr) noexcept
-        {
-            std::construct_at(std::addressof(ptrs<facade_t, mapping_t>[type_index]), ptr);
-            // ptrs<facade_t, mapping_t>[type_index] = ptr;
-        }
-
-        template <typename facade_t, typename mapping_t>
-        static inline std::array<dispatch_storage<facade_t, mapping_t>, size_v> ptrs;
-#    if 0
-        template <typename facade_t, typename mapping_t>
-        SPORE_PROXY_FORCE_INLINE static void* get_ptr(const std::uint32_t type_index) noexcept
-        {
-            return ptrs<facade_t, mapping_t>.at(type_index);
-        }
-
-        template <typename facade_t, typename mapping_t>
-        SPORE_PROXY_FORCE_INLINE static void set_ptr(const std::uint32_t type_index, void* ptr) noexcept
-        {
-            ptrs<facade_t, mapping_t>.at(type_index) = ptr;
-        }
-
-        template <typename facade_t, typename mapping_t>
-        static inline std::array<void*, size_v> ptrs;
-#    endif
-#endif
     };
 
     using proxy_dispatch = SPORE_PROXY_DISPATCH_DEFAULT;
@@ -628,7 +344,6 @@ constexpr dispatch_storage()
                 proxies::detail::add_facade_mapping_once<facade_t, mapping_t>();
 
                 using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
-
                 proxy_base_t& proxy = reinterpret_cast<proxy_base_t&>(self);
 
                 const auto dispatcher = proxy_dispatch::get_dispatcher<facade_t, mapping_t>(proxy.type_index());
