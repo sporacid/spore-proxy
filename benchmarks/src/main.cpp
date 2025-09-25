@@ -236,6 +236,16 @@ struct vx::impl<spore::benchmarks::avask::facade, value_t> final : impl_for<spor
     }
 };
 
+template <typename signature_t>
+struct function_ref;
+
+template <typename return_t, typename... args_t>
+struct function_ref<return_t(args_t...)>
+{
+    // using type = return_t (&)(args_t...);
+    return_t (&func)(args_t...);
+};
+
 int main()
 {
     using namespace spore;
@@ -243,6 +253,15 @@ int main()
     constexpr std::size_t warm_iterations = 100;
     constexpr std::size_t work_iterations = 100000000;
     constexpr std::size_t work_size = 100;
+
+    using func_type = void (&)();
+
+    function_ref<void()> f {[] {}};
+    function_ref<void()> fs[] {
+        [] {},
+        [] {},
+        [] {},
+    };
 
     std::vector<benchmarks::result> results;
 
