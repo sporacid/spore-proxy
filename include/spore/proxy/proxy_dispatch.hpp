@@ -14,6 +14,12 @@
 #    define SPORE_PROXY_DISPATCH_DEFAULT proxy_dispatch_dynamic<>
 #endif
 
+#define SPORE_PROXY_DISPATCH_MEMBER(Name, Result, ...)                                              \
+    constexpr auto action = []<typename self_t, typename... args_t>(self_t&& self, args_t&& args) { \
+        std::forward<self_t>(self).Name(std::forward<args_t>(args)...);                             \
+    };                                                                                              \
+    proxies::dispatch(action, *this, __VA_ARGS__);
+
 namespace spore
 {
     namespace proxies::detail

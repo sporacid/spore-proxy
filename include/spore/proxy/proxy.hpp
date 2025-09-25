@@ -63,9 +63,9 @@ namespace spore
         }
 
         constexpr proxy(const proxy& other) noexcept(std::is_nothrow_copy_constructible_v<storage_t>) requires(std::is_copy_constructible_v<storage_t>)
-            : proxy_base(other.type_index())
+            : proxy_base(other.type_index()),
+              _storage(other._storage)
         {
-            _storage = other._storage;
             _ptr = _storage.ptr();
         }
 
@@ -79,9 +79,9 @@ namespace spore
         }
 
         constexpr proxy(proxy&& other) noexcept(std::is_nothrow_move_constructible_v<storage_t>) requires(std::is_move_constructible_v<storage_t>)
-            : proxy_base(0)
+            : proxy_base(0),
+              _storage(std::move(other._storage))
         {
-            std::swap(_storage, other._storage);
             std::swap(_type_index, other._type_index);
             std::swap(_ptr, other._ptr);
         }
@@ -178,14 +178,6 @@ namespace spore
     {
         _ptr = proxy.ptr();
     }
-
-    //    using value_storage = std::conditional_t<
-    //        static_cast<bool>(SPORE_PROXY_VALUE_INLINE_STORAGE),
-    //        proxy_storage_inline_or<proxy_storage_value, SPORE_PROXY_VALUE_INLINE_STORAGE>,
-    //        proxy_storage_value>;
-
-    //    template <typename value_t>
-    //    using inline_storage = proxy_storage_inline2<sizeof(value_t), alignof(value_t)>;
 
     template <any_proxy_facade facade_t, typename value_t>
     using inline_proxy = proxy<facade_t, proxy_storage_inline<value_t>>;

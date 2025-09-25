@@ -15,7 +15,6 @@ namespace spore
     template <typename storage_t>
     concept any_proxy_storage = requires(const storage_t& storage)
     {
-        std::is_default_constructible_v<storage_t>;
         { storage.ptr() } -> std::same_as<void*>;
     };
     // clang-format on
@@ -72,8 +71,6 @@ namespace spore
 
     struct proxy_storage_invalid
     {
-        proxy_storage_invalid() = default;
-
         template <typename value_t, typename... args_t>
         explicit proxy_storage_invalid(std::in_place_type_t<value_t>, args_t&&...) SPORE_PROXY_THROW_SPEC
         {
@@ -100,8 +97,6 @@ namespace spore
             value_t value;
         };
 
-        proxy_storage_shared() = default;
-
         template <typename value_t, typename... args_t>
         explicit proxy_storage_shared(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
@@ -120,9 +115,9 @@ namespace spore
             _dispatch = other._dispatch;
             _ptr = other._ptr;
 
-            if (counter_t* count = counter())
+            if (_dispatch != nullptr and _ptr != nullptr)
             {
-                count->operator++();
+                ++counter();
             }
         }
 
@@ -187,8 +182,6 @@ namespace spore
 
     struct proxy_storage_unique
     {
-        proxy_storage_unique() = default;
-
         template <typename value_t, typename... args_t>
         explicit proxy_storage_unique(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
@@ -241,8 +234,6 @@ namespace spore
 
     struct proxy_storage_value
     {
-        proxy_storage_value() = default;
-
         template <typename value_t, typename... args_t>
         explicit proxy_storage_value(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
@@ -320,8 +311,6 @@ namespace spore
     template <typename value_t>
     struct proxy_storage_inline
     {
-        constexpr proxy_storage_inline() = default;
-
         template <typename... args_t>
         constexpr explicit proxy_storage_inline(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
