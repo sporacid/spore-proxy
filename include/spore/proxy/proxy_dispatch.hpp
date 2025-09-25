@@ -1,6 +1,7 @@
 #pragma once
 
 #include "spore/proxy/proxy_base.hpp"
+#include "spore/proxy/proxy_facade.hpp"
 #include "spore/proxy/proxy_macros.hpp"
 #include "spore/proxy/proxy_type_set.hpp"
 
@@ -143,7 +144,7 @@ namespace spore
         }
     };
 
-    using proxy_dispatch = SPORE_PROXY_DISPATCH_DEFAULT;
+    using proxy_dispatch_default = SPORE_PROXY_DISPATCH_DEFAULT;
 
     namespace proxies
     {
@@ -208,6 +209,26 @@ namespace spore
                 }
             };
 
+            // clang-format off
+            template <typename facade_t>
+            concept facade_dispatch_type_override = requires
+            {
+                { std::in_place_type<typename facade_t::dispatch_type> };
+            };
+            // clang-format on
+
+            template <typename facade_t>
+            struct select_dispatch_type
+            {
+                using type = proxy_dispatch_default;
+            };
+
+            template <facade_dispatch_type_override facade_t>
+            struct select_dispatch_type<facade_t>
+            {
+                using type = typename facade_t::dispatch_type;
+            };
+
             template <typename facade_t>
             consteval void add_facade()
             {
@@ -232,10 +253,11 @@ namespace spore
             SPORE_PROXY_FORCE_INLINE void add_value_mapping_once() noexcept
             {
                 using tag_t = proxies::detail::once_tag<value_t, mapping_t>;
-                proxy_dispatch::call_once<tag_t>([] {
-                    using facade_t = typename mapping_t::facade_type;
+                using facade_t = typename mapping_t::facade_type;
+                using dispatch_t = typename select_dispatch_type<facade_t>::type;
+                dispatch_t::template call_once<tag_t>([] {
                     const std::uint32_t type_index = proxies::detail::type_index<facade_t, value_t>();
-                    proxy_dispatch::set_dispatch<mapping_t>(type_index, &mapping_t::template dispatch<value_t>);
+                    dispatch_t::template set_dispatch<mapping_t>(type_index, &mapping_t::template dispatch<value_t>);
                 });
             }
 
@@ -243,7 +265,8 @@ namespace spore
             SPORE_PROXY_FORCE_INLINE void add_facade_value_once() noexcept
             {
                 using tag_t = proxies::detail::once_tag<facade_t, value_t>;
-                proxy_dispatch::call_once<tag_t>([] {
+                using dispatch_t = typename select_dispatch_type<facade_t>::type;
+                dispatch_t::template call_once<tag_t>([] {
                     proxies::detail::add_facade<facade_t>();
                     proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
 
@@ -261,7 +284,8 @@ namespace spore
             SPORE_PROXY_FORCE_INLINE void add_facade_mapping_once() noexcept
             {
                 using tag_t = proxies::detail::once_tag<facade_t, mapping_t>;
-                proxy_dispatch::call_once<tag_t>([] {
+                using dispatch_t = typename select_dispatch_type<facade_t>::type;
+                dispatch_t::template call_once<tag_t>([] {
                     proxies::detail::add_facade<facade_t>();
                     proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
 
@@ -281,6 +305,7 @@ namespace spore
             constexpr return_t dispatch_impl(const func_t&, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
             {
                 using facade_t = std::decay_t<self_t>;
+                using dispatch_t = typename select_dispatch_type<facade_t>::type;
                 using mapping_t = proxies::detail::dispatch_mapping<facade_t, func_t, self_t, return_t(args_t...)>;
 
                 static_assert(std::is_empty_v<func_t>);
@@ -291,7 +316,7 @@ namespace spore
                 using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
                 proxy_base_t& proxy = reinterpret_cast<proxy_base_t&>(self);
 
-                const auto dispatch = proxy_dispatch::get_dispatch<mapping_t>(proxy.type_index());
+                const auto dispatch = dispatch_t::template get_dispatch<mapping_t>(proxy.type_index());
                 SPORE_PROXY_ASSERT(dispatch != nullptr);
 
                 return dispatch(proxy.ptr(), std::forward<args_t>(args)...);

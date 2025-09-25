@@ -1,4 +1,6 @@
-# 📦 Spore Proxy
+# 📦 Spore Proxy - Template-Friendly Runtime Polymorphism
+
+`spore-proxy` is a header-only, no-dependencies, type-erasure and runtime polymorphism library. 
 
 **Short tagline or elevator pitch.**  
 Describe what your library does in one or two sentences.

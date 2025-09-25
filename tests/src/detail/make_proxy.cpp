@@ -15,8 +15,12 @@ namespace spore::proxies::tests::tu
         }
     };
 
-    shared_proxy<facade> make_proxy()
+    template <typename dispatch_t>
+    shared_proxy<facade<dispatch_t>> make_proxy()
     {
-        return proxies::make_shared<facade, impl>();
+        return proxies::make_shared<facade<dispatch_t>, impl>();
     }
+
+    template shared_proxy<facade<proxy_dispatch_dynamic<>>> make_proxy();
+    template shared_proxy<facade<proxy_dispatch_static<>>> make_proxy();
 }

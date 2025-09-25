@@ -10,18 +10,21 @@
 #include <array>
 #include <thread>
 
-#ifndef SPORE_PROXY_THREAD_COUNT
-#    define SPORE_PROXY_THREAD_COUNT 24
+#ifndef SPORE_PROXY_TEST_THREAD_COUNT
+#    define SPORE_PROXY_TEST_THREAD_COUNT 24
 #endif
 
-TEST_CASE("spore::proxy", "[spore::proxy]")
+TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_static<>), (spore::proxy_dispatch_dynamic<>) )
 {
     using namespace spore;
+    using dispatch_type = TestType;
 
     SECTION("basic facade")
     {
         struct facade : proxy_facade<facade>
         {
+            using dispatch_type = dispatch_type;
+
             void act()
             {
                 constexpr auto func = [](auto& self) { self.act(); };
@@ -50,7 +53,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     SECTION("shared facade")
     {
         // clang-format off
-        struct facade : proxy_facade<facade> {};
+        struct facade : proxy_facade<facade> { using dispatch_type = dispatch_type; };
         struct impl {};
         // clang-format on
 
@@ -73,7 +76,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     SECTION("unique facade")
     {
         // clang-format off
-        struct facade : proxy_facade<facade> {};
+        struct facade : proxy_facade<facade> { using dispatch_type = dispatch_type; };
         struct impl {};
         // clang-format on
 
@@ -95,6 +98,8 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     {
         struct facade : proxy_facade<facade>
         {
+            using dispatch_type = dispatch_type;
+
             [[nodiscard]] bool copied() const
             {
                 constexpr auto func = [](const auto& self) { return self.copied; };
@@ -155,6 +160,8 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     {
         struct facade : proxy_facade<facade>
         {
+            using dispatch_type = dispatch_type;
+
             [[nodiscard]] bool copied() const
             {
                 constexpr auto func = [](const auto& self) { return self.copied; };
@@ -217,6 +224,8 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     {
         struct facade : proxy_facade<facade>
         {
+            using dispatch_type = dispatch_type;
+
             void act()
             {
                 constexpr auto func = [](auto& self) { self.act(); };
@@ -255,6 +264,8 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     {
         struct facade : proxy_facade<facade>
         {
+            using dispatch_type = dispatch_type;
+
             void act() const
             {
                 constexpr auto func = []<proxies::tests::actable self_t>(const self_t& self) { self.act(); };
@@ -275,6 +286,8 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     {
         struct facade : proxy_facade<facade>
         {
+            using dispatch_type = dispatch_type;
+
             int act() const
             {
                 constexpr auto func = []<proxies::tests::actable self_t>(const self_t& self) { self.act(); };
@@ -378,6 +391,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         struct facade : proxy_facade<facade, facade_base1, facade_base2>
         {
+            using dispatch_type = dispatch_type;
         };
 
         struct impl
@@ -418,10 +432,10 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
     {
         constexpr std::size_t result_count = 32;
 
-        proxy p = proxies::make_value<proxies::tests::templates::facade, proxies::tests::templates::impl>();
+        proxy p = proxies::make_value<proxies::tests::templates::facade<dispatch_type>, proxies::tests::templates::impl>();
 
         const auto test_result = [&]<std::size_t index_v> {
-            REQUIRE(index_v == p.act<index_v>());
+            REQUIRE(index_v == p.template act<index_v>());
         };
 
         const auto test_results = [&]<std::size_t... indices_v>(std::index_sequence<indices_v...>) {
@@ -431,9 +445,34 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         test_results(std::make_index_sequence<result_count>());
     }
 
+    SECTION("facade dispatch override")
+    {
+        struct facade : proxy_facade<facade>
+        {
+            using dispatch_type = proxies::tests::test_dispatch;
+
+            void act()
+            {
+                constexpr auto func = [](auto& self) { self.act(); };
+                proxies::dispatch(func, *this);
+            }
+        };
+
+        struct impl
+        {
+            void act() {}
+        };
+
+        proxy p = proxies::make_unique<facade, impl>();
+        p.act();
+
+        REQUIRE(proxies::tests::test_dispatch::set_called);
+        REQUIRE(proxies::tests::test_dispatch::get_called);
+    }
+
     SECTION("facade across translation unit")
     {
-        proxy p = proxies::tests::tu::make_proxy();
+        proxy p = proxies::tests::tu::make_proxy<dispatch_type>();
 
         REQUIRE(0 == proxies::tests::tu::some_work(p));
         REQUIRE(1 == proxies::tests::tu::some_other_work(p));
@@ -441,14 +480,14 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
     SECTION("facade across threads")
     {
-        constexpr std::size_t thread_count = SPORE_PROXY_THREAD_COUNT;
+        constexpr std::size_t thread_count = SPORE_PROXY_TEST_THREAD_COUNT;
         constexpr std::size_t result_count = 256;
 
         std::atomic_flag flag = ATOMIC_FLAG_INIT;
         std::atomic<std::size_t> counter;
         std::atomic<std::size_t> results[thread_count][result_count] {};
 
-        proxy p = proxies::make_value<proxies::tests::threads::facade, proxies::tests::threads::impl>();
+        proxy p = proxies::make_value<proxies::tests::threads::facade<dispatch_type>, proxies::tests::threads::impl>();
 
         const auto make_thread = [&]<std::size_t... indices_v>(std::index_sequence<indices_v...>) {
             return std::thread {
@@ -460,7 +499,7 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
                     const std::size_t thread_index = counter++;
 
                     const auto set_result = [&]<std::size_t index_v> {
-                        results[thread_index][index_v] = p.act<index_v>();
+                        results[thread_index][index_v] = p.template act<index_v>();
                     };
 
                     (set_result.template operator()<indices_v>(), ...);

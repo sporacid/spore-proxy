@@ -4,8 +4,11 @@
 
 namespace spore::proxies::tests::templates
 {
-    struct facade : proxy_facade<facade>
+    template <typename dispatch_t>
+    struct facade : proxy_facade<facade<dispatch_t>>
     {
+        using dispatch_type = dispatch_t;
+
         template <std::size_t value_v>
         std::size_t act() const
         {

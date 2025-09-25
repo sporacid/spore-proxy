@@ -4,8 +4,11 @@
 
 namespace spore::proxies::tests::tu
 {
-    struct facade : proxy_facade<facade>
+    template <typename dispatch_t>
+    struct facade : proxy_facade<facade<dispatch_t>>
     {
+        using dispatch_type = dispatch_t;
+
         std::size_t some_work() const
         {
             constexpr auto func = [](auto& self) { return self.some_work(); };
@@ -19,7 +22,15 @@ namespace spore::proxies::tests::tu
         }
     };
 
-    shared_proxy<facade> make_proxy();
-    std::size_t some_work(const shared_proxy<facade>& proxy);
-    std::size_t some_other_work(const shared_proxy<facade>& proxy);
+    template struct facade<proxy_dispatch_dynamic<>>;
+    template struct facade<proxy_dispatch_static<>>;
+
+    template <typename dispatch_t>
+    shared_proxy<facade<dispatch_t>> make_proxy();
+
+    template <typename dispatch_t>
+    std::size_t some_work(const shared_proxy<facade<dispatch_t>>& proxy);
+
+    template <typename dispatch_t>
+    std::size_t some_other_work(const shared_proxy<facade<dispatch_t>>& proxy);
 }

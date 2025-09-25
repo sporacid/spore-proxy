@@ -31,15 +31,15 @@ namespace spore::benchmarks
         std::atomic_thread_fence(std::memory_order_seq_cst);
         (void) value;
         std::atomic_thread_fence(std::memory_order_seq_cst);
-//#if defined(__clang__)
-//        asm volatile("" : "+r,m"(value) : : "memory");
-//#elif defined(__GNUC__)
-//        asm volatile("" : "+m,r"(value) : : "memory");
-//#elif defined(_MSC_VER)
-//        std::atomic_thread_fence(std::memory_order_seq_cst);
-//        (void) value;
-//        std::atomic_thread_fence(std::memory_order_seq_cst);
-//#endif
+        // #if defined(__clang__)
+        //         asm volatile("" : "+r,m"(value) : : "memory");
+        // #elif defined(__GNUC__)
+        //         asm volatile("" : "+m,r"(value) : : "memory");
+        // #elif defined(_MSC_VER)
+        //         std::atomic_thread_fence(std::memory_order_seq_cst);
+        //         (void) value;
+        //         std::atomic_thread_fence(std::memory_order_seq_cst);
+        // #endif
     }
 
     void output_results(const std::span<const result> results)
@@ -210,8 +210,11 @@ namespace spore::benchmarks
 
     namespace spore
     {
-        struct facade : proxy_facade<facade>
+        template <typename dispatch_t>
+        struct facade : proxy_facade<facade<dispatch_t>>
         {
+            using dispatch_type = dispatch_t;
+
             std::size_t work(const std::size_t size) const noexcept
             {
                 constexpr auto func = [](auto& self, const std::size_t size) { return self.work(size); };
@@ -226,6 +229,18 @@ namespace spore::benchmarks
                 return do_work(size);
             }
         };
+
+        namespace dynamic
+        {
+            using facade = facade<proxy_dispatch_dynamic<>>;
+            using benchmarks::spore::impl;
+        }
+
+        namespace static_
+        {
+            using facade = facade<proxy_dispatch_static<>>;
+            using benchmarks::spore::impl;
+        }
     }
 }
 
@@ -313,29 +328,55 @@ int main()
 #endif
 
     {
-        unique_proxy<benchmarks::spore::facade> facade = proxies::make_unique(benchmarks::spore::impl {});
-        benchmark.template operator()<work_value>("spore (unique)", facade);
+        unique_proxy<benchmarks::spore::static_::facade> facade = proxies::make_unique(benchmarks::spore::static_::impl {});
+        benchmark.template operator()<work_value>("spore static (unique)", facade);
     }
 
     {
-        shared_proxy<benchmarks::spore::facade> facade = proxies::make_shared(benchmarks::spore::impl {});
-        benchmark.template operator()<work_value>("spore (shared)", facade);
+        shared_proxy<benchmarks::spore::static_::facade> facade = proxies::make_shared(benchmarks::spore::static_::impl {});
+        benchmark.template operator()<work_value>("spore static (shared)", facade);
     }
 
     {
-        value_proxy<benchmarks::spore::facade> facade = proxies::make_value(benchmarks::spore::impl {});
-        benchmark.template operator()<work_value>("spore (value)", facade);
+        value_proxy<benchmarks::spore::static_::facade> facade = proxies::make_value(benchmarks::spore::static_::impl {});
+        benchmark.template operator()<work_value>("spore static (value)", facade);
     }
 
     {
-        inline_proxy<benchmarks::spore::facade, benchmarks::spore::impl> facade = proxies::make_inline(benchmarks::spore::impl {});
-        benchmark.template operator()<work_value>("spore (inline)", facade);
+        inline_proxy<benchmarks::spore::static_::facade, benchmarks::spore::impl> facade = proxies::make_inline(benchmarks::spore::static_::impl {});
+        benchmark.template operator()<work_value>("spore static (inline)", facade);
     }
 
     {
         const benchmarks::spore::impl impl;
-        proxy_view<benchmarks::spore::facade> facade = proxies::make_view(impl);
-        benchmark.template operator()<work_value>("spore (view)", facade);
+        proxy_view<benchmarks::spore::static_::facade> facade = proxies::make_view(impl);
+        benchmark.template operator()<work_value>("spore static (view)", facade);
+    }
+
+    {
+        unique_proxy<benchmarks::spore::dynamic::facade> facade = proxies::make_unique(benchmarks::spore::dynamic::impl {});
+        benchmark.template operator()<work_value>("spore dynamic (unique)", facade);
+    }
+
+    {
+        shared_proxy<benchmarks::spore::dynamic::facade> facade = proxies::make_shared(benchmarks::spore::dynamic::impl {});
+        benchmark.template operator()<work_value>("spore dynamic (shared)", facade);
+    }
+
+    {
+        value_proxy<benchmarks::spore::dynamic::facade> facade = proxies::make_value(benchmarks::spore::dynamic::impl {});
+        benchmark.template operator()<work_value>("spore dynamic (value)", facade);
+    }
+
+    {
+        inline_proxy<benchmarks::spore::dynamic::facade, benchmarks::spore::dynamic::impl> facade = proxies::make_inline(benchmarks::spore::dynamic::impl {});
+        benchmark.template operator()<work_value>("spore dynamic (inline)", facade);
+    }
+
+    {
+        const benchmarks::spore::dynamic::impl impl;
+        proxy_view<benchmarks::spore::dynamic::facade> facade = proxies::make_view(impl);
+        benchmark.template operator()<work_value>("spore dynamic (view)", facade);
     }
 
     benchmarks::output_results(results);
