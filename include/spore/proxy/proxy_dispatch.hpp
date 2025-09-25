@@ -1,14 +1,13 @@
 #pragma once
 
-#include "spore/proxy/detail/proxy_once.hpp"
-#include "spore/proxy/detail/proxy_type_set.hpp"
 #include "spore/proxy/proxy_base.hpp"
 #include "spore/proxy/proxy_macros.hpp"
+#include "spore/proxy/proxy_type_set.hpp"
 
 #include <array>
 #include <cstddef>
 #include <type_traits>
-#include <unordered_map>
+#include <vector>
 
 #ifndef SPORE_PROXY_DISPATCH_DEFAULT
 #    define SPORE_PROXY_DISPATCH_DEFAULT proxy_dispatch_dynamic<>
@@ -66,7 +65,6 @@ namespace spore
     template <std::size_t size_v = 16, std::float_t grow_v = 1.5f>
     struct [[maybe_unused]] proxy_dispatch_dynamic
     {
-#if 1
         template <typename tag_t, typename func_t>
         SPORE_PROXY_FORCE_INLINE static void call_once(const func_t&)
         {
@@ -77,16 +75,7 @@ namespace spore
                 return true;
             }();
         }
-#else
-        template <typename tag_t, auto func_v>
-        SPORE_PROXY_FORCE_INLINE static void call_once()
-        {
-            [[maybe_unused]] static thread_local const bool once = [] {
-                func_v();
-                return true;
-            }();
-        }
-#endif
+
         template <typename facade_t, typename mapping_t>
         SPORE_PROXY_FORCE_INLINE static void* get_ptr(const std::uint32_t type_index) noexcept
         {
@@ -115,7 +104,6 @@ namespace spore
     template <std::size_t size_v = 64>
     struct [[maybe_unused]] proxy_dispatch_static
     {
-#if 1
         template <typename tag_t, typename func_t>
         SPORE_PROXY_FORCE_INLINE static void call_once(const func_t&)
         {
@@ -126,16 +114,6 @@ namespace spore
                 return true;
             }();
         }
-#else
-        template <typename tag_t, auto func_v>
-        SPORE_PROXY_FORCE_INLINE static void call_once()
-        {
-            [[maybe_unused]] static const bool once = [] {
-                func_v();
-                return true;
-            }();
-        }
-#endif
 
         template <typename facade_t, typename mapping_t>
         SPORE_PROXY_FORCE_INLINE static void* get_ptr(const std::uint32_t type_index) noexcept
@@ -242,28 +220,18 @@ namespace spore
             SPORE_PROXY_FORCE_INLINE void add_value_mapping_once() noexcept
             {
                 using tag_t = proxies::detail::once_tag<value_t, mapping_t>;
-#if 1
                 proxy_dispatch::call_once<tag_t>([] {
                     using facade_t = typename mapping_t::facade_type;
                     const std::uint32_t type_index = proxies::detail::type_index<facade_t, value_t>();
                     void* ptr = reinterpret_cast<void*>(&mapping_t::template dispatch_as<value_t>);
                     proxy_dispatch::set_ptr<facade_t, mapping_t>(type_index, ptr);
                 });
-#else
-                proxy_dispatch::call_once<tag_t, [] {
-                    using facade_t = typename mapping_t::facade_type;
-                    const std::uint32_t type_index = proxies::detail::type_index<facade_t, value_t>();
-                    void* ptr = reinterpret_cast<void*>(&mapping_t::template dispatch_as<value_t>);
-                    proxy_dispatch::set_ptr<facade_t, mapping_t>(type_index, ptr);
-                }>();
-#endif
             }
 
             template <typename facade_t, typename value_t>
             SPORE_PROXY_FORCE_INLINE void add_facade_value_once() noexcept
             {
                 using tag_t = proxies::detail::once_tag<facade_t, value_t>;
-#if 1
                 proxy_dispatch::call_once<tag_t>([] {
                     proxies::detail::add_facade<facade_t>();
                     proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
@@ -276,27 +244,12 @@ namespace spore
                         proxies::detail::add_facade_value_once<base_facade_t, value_t>();
                     });
                 });
-#else
-                proxy_dispatch::call_once<tag_t, [] {
-                    proxies::detail::add_facade<facade_t>();
-                    proxies::detail::type_sets::emplace<proxies::detail::value_tag<facade_t>, value_t>();
-
-                    proxies::detail::type_sets::for_each<proxies::detail::mapping_tag<facade_t>>([]<typename mapping_t> {
-                        proxies::detail::add_value_mapping_once<value_t, mapping_t>();
-                    });
-
-                    proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_facade_t> {
-                        proxies::detail::add_facade_value_once<base_facade_t, value_t>();
-                    });
-                }>();
-#endif
             }
 
             template <typename facade_t, typename mapping_t>
             SPORE_PROXY_FORCE_INLINE void add_facade_mapping_once() noexcept
             {
                 using tag_t = proxies::detail::once_tag<facade_t, mapping_t>;
-#if 1
                 proxy_dispatch::call_once<tag_t>([] {
                     proxies::detail::add_facade<facade_t>();
                     proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
@@ -311,22 +264,6 @@ namespace spore
                         });
                     });
                 });
-#else
-                proxy_dispatch::call_once<tag_t, [] {
-                    proxies::detail::add_facade<facade_t>();
-                    proxies::detail::type_sets::emplace<proxies::detail::mapping_tag<facade_t>, mapping_t>();
-
-                    proxies::detail::type_sets::for_each<proxies::detail::value_tag<facade_t>>([]<typename value_t> {
-                        proxies::detail::add_value_mapping_once<value_t, mapping_t>();
-                    });
-
-                    proxies::detail::type_sets::for_each<proxies::detail::base_tag<facade_t>>([]<typename base_t> {
-                        proxies::detail::type_sets::for_each<proxies::detail::value_tag<base_t>>([]<typename value_t> {
-                            proxies::detail::add_value_mapping_once<value_t, mapping_t>();
-                        });
-                    });
-                }>();
-#endif
             }
 
             template <typename return_t, typename func_t, typename self_t, typename... args_t>
