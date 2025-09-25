@@ -246,6 +246,12 @@ struct function_ref<return_t(args_t...)>
     return_t (&func)(args_t...);
 };
 
+template <typename return_t, typename... args_t>
+return_t wtf(args_t&&...)
+{
+    return return_t {};
+}
+
 int main()
 {
     using namespace spore;
@@ -256,12 +262,17 @@ int main()
 
     using func_type = void (&)();
 
-    function_ref<void()> f {[] {}};
-    function_ref<void()> fs[] {
-        [] {},
-        [] {},
-        [] {},
-    };
+//    void (&f1)() = wtf;
+//    //    func_type fa = []{};
+//    //
+//    function_ref<void()> f2 {wtf};
+//
+//    std::vector<function_ref<void()>> fs;
+//    fs.emplace_back(function_ref<void()>{wtf});
+//    std::optional<function_ref<void()>> fs[3] {
+//        {wtf},
+//        {wtf},
+//    };
 
     std::vector<benchmarks::result> results;
 
