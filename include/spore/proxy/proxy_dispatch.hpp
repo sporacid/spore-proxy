@@ -142,12 +142,12 @@ namespace spore
         {
             const std::vector<proxies::detail::dispatcher_storage<facade_t, mapping_t>>& type_dispatchers = dispatchers<facade_t, mapping_t>;
 
-            if (type_index < type_dispatchers.size())
+            if (type_index < type_dispatchers.size()) [[likely]]
             {
                 return type_dispatchers[type_index];
             }
 
-            return proxies::detail::dispatcher_impl<facade_t, mapping_t>::invalid;
+            return proxies::detail::dispatcher_storage<facade_t, mapping_t> {};
         }
 
         template <typename facade_t, typename mapping_t>
@@ -155,7 +155,7 @@ namespace spore
         {
             std::vector<proxies::detail::dispatcher_storage<facade_t, mapping_t>>& type_dispatchers = dispatchers<facade_t, mapping_t>;
 
-            if (type_index >= type_dispatchers.size())
+            if (type_index >= type_dispatchers.size()) [[unlikely]]
             {
                 const std::size_t new_size = std::max<std::size_t>(type_index + 1, type_dispatchers.size() * grow_v);
                 type_dispatchers.resize(new_size);

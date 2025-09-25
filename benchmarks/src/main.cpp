@@ -3,10 +3,12 @@
 #include "avask/some.hpp"
 #include "proxy/proxy.h"
 
-#if defined(_MSC_VER) && !defined(__clang__)
+#if !defined(_MSC_VER) || defined(__clang__)
 #    include "dyno.hpp"
-#else
-#    include <intrin.h>
+#endif
+
+#if defined(_MSC_VER)
+#    include <thread>
 #endif
 
 #include <chrono>
@@ -26,15 +28,18 @@ namespace spore::benchmarks
     template <typename value_t>
     SPORE_PROXY_FORCE_INLINE void do_not_optimize(value_t& value)
     {
-#if defined(__clang__)
-        asm volatile("" : "+r,m"(value) : : "memory");
-#elif defined(__GNUC__)
-        asm volatile("" : "+m,r"(value) : : "memory");
-#elif defined(_MSC_VER)
-        _ReadWriteBarrier();
+        std::atomic_thread_fence(std::memory_order_seq_cst);
         (void) value;
-        _ReadWriteBarrier();
-#endif
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+//#if defined(__clang__)
+//        asm volatile("" : "+r,m"(value) : : "memory");
+//#elif defined(__GNUC__)
+//        asm volatile("" : "+m,r"(value) : : "memory");
+//#elif defined(_MSC_VER)
+//        std::atomic_thread_fence(std::memory_order_seq_cst);
+//        (void) value;
+//        std::atomic_thread_fence(std::memory_order_seq_cst);
+//#endif
     }
 
     void output_results(const std::span<const result> results)
@@ -171,7 +176,7 @@ namespace spore::benchmarks
         };
     }
 
-#if defined(_MSC_VER) && !defined(__clang__)
+#if !defined(_MSC_VER) || defined(__clang__)
     namespace dyno_
     {
         DYNO_INTERFACE(facade,
@@ -236,43 +241,13 @@ struct vx::impl<spore::benchmarks::avask::facade, value_t> final : impl_for<spor
     }
 };
 
-template <typename signature_t>
-struct function_ref;
-
-template <typename return_t, typename... args_t>
-struct function_ref<return_t(args_t...)>
-{
-    // using type = return_t (&)(args_t...);
-    return_t (&func)(args_t...);
-};
-
-template <typename return_t, typename... args_t>
-return_t wtf(args_t&&...)
-{
-    return return_t {};
-}
-
 int main()
 {
     using namespace spore;
 
     constexpr std::size_t warm_iterations = 100;
     constexpr std::size_t work_iterations = 100000000;
-    constexpr std::size_t work_size = 100;
-
-    using func_type = void (&)();
-
-//    void (&f1)() = wtf;
-//    //    func_type fa = []{};
-//    //
-//    function_ref<void()> f2 {wtf};
-//
-//    std::vector<function_ref<void()>> fs;
-//    fs.emplace_back(function_ref<void()>{wtf});
-//    std::optional<function_ref<void()>> fs[3] {
-//        {wtf},
-//        {wtf},
-//    };
+    constexpr std::size_t work_size = 10;
 
     std::vector<benchmarks::result> results;
 
@@ -330,7 +305,7 @@ int main()
         benchmark.template operator()<work_pointer>("avask", facade);
     }
 
-#if defined(_MSC_VER) && !defined(__clang__)
+#if !defined(_MSC_VER) || defined(__clang__)
     {
         benchmarks::dyno_::facade facade {benchmarks::dyno_::impl {}};
         benchmark.template operator()<work_value>("dyno", facade);
