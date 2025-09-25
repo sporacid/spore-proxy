@@ -316,7 +316,7 @@ int main()
 
     {
         const benchmarks::spore::impl impl;
-        proxy_view<benchmarks::spore::facade> facade = proxies::make_view<benchmarks::spore::facade>(impl);
+        proxy_view<benchmarks::spore::facade> facade = proxies::make_view(impl);
         benchmark.template operator()<work_value>("spore (view)", facade);
     }
 

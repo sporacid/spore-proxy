@@ -3,25 +3,16 @@
 #include "spore/proxy/proxy.hpp"
 #include "spore/proxy/tests/t_dispatch.hpp"
 #include "spore/proxy/tests/t_templates.hpp"
+#include "spore/proxy/tests/t_thread.hpp"
 #include "spore/proxy/tests/t_translation_unit.hpp"
+
+#include <algorithm>
+#include <array>
+#include <thread>
 
 #ifndef SPORE_PROXY_THREAD_COUNT
 #    define SPORE_PROXY_THREAD_COUNT 24
 #endif
-
-#ifndef SPORE_PROXY_ENABLE_THREAD_TEST
-#    define SPORE_PROXY_ENABLE_THREAD_TEST 1
-#endif
-
-#if SPORE_PROXY_ENABLE_THREAD_TEST
-#    include "spore/proxy/tests/t_thread.hpp"
-
-#    include <array>
-#    include <ranges>
-#    include <thread>
-#endif
-
-#include <fstream>
 
 TEST_CASE("spore::proxy", "[spore::proxy]")
 {
@@ -448,7 +439,6 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
         REQUIRE(1 == proxies::tests::tu::some_other_work(p));
     }
 
-#if SPORE_PROXY_ENABLE_THREAD_TEST
     SECTION("facade across threads")
     {
         constexpr std::size_t thread_count = SPORE_PROXY_THREAD_COUNT;
@@ -492,24 +482,6 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
 
         std::ranges::for_each(threads, [](std::thread& thread) { thread.join(); });
 
-        // std::ofstream file {"C:/Dev/wtf.txt"};
-
-        // file << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::value_tag<proxies::tests::threads::facade>>())).name() << std::endl;
-        // file << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::base_tag<proxies::tests::threads::facade>>())).name() << std::endl;
-        // file << typeid(decltype(proxies::detail::type_sets::get<proxies::detail::mapping_tag<proxies::tests::threads::facade>>())).name() << std::endl;
-
-#    if 0
-        for (std::size_t thread_index = 0; thread_index < thread_count; ++thread_index)
-        {
-            for (std::size_t result_index = 0; result_index < result_count; ++result_index)
-            {
-                file << thread_index << ":" << result_index << " -> " << results[thread_index][result_index] << std::endl;
-            }
-        }
-
-#    endif
-        // file.close();
-
         for (std::size_t thread_index = 0; thread_index < thread_count; ++thread_index)
         {
             for (std::size_t result_index = 0; result_index < result_count; ++result_index)
@@ -518,5 +490,4 @@ TEST_CASE("spore::proxy", "[spore::proxy]")
             }
         }
     }
-#endif
 }
