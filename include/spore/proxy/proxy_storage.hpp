@@ -69,131 +69,6 @@ namespace spore
         }
     };
 
-#if 0
-    struct proxy_storage_allocation_base
-    {
-        template <typename value_t, typename... args_t>
-        explicit proxy_storage_allocation_base(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
-        {
-            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
-            _ptr = new value_t {std::forward<args_t>(args)...};
-        }
-
-        proxy_storage_allocation_base(proxy_storage_allocation_base&& other) noexcept
-        {
-            std::swap(_dispatch, other._dispatch);
-            std::swap(_ptr, other._ptr);
-        }
-
-        proxy_storage_allocation_base& operator=(proxy_storage_allocation_base&& other) noexcept
-        {
-            std::swap(_dispatch, other._dispatch);
-            std::swap(_ptr, other._ptr);
-            return *this;
-        }
-
-        proxy_storage_allocation_base(const proxy_storage_allocation_base& other) noexcept = delete;
-        proxy_storage_allocation_base& operator=(const proxy_storage_allocation_base& other) noexcept = delete;
-
-        ~proxy_storage_allocation_base() noexcept
-        {
-            reset();
-        }
-
-        [[nodiscard]] void* ptr() const noexcept
-        {
-            SPORE_PROXY_ASSERT(_ptr != nullptr);
-            return _ptr;
-        }
-
-        [[nodiscard]] const proxy_storage_dispatch& dispatch() const noexcept
-        {
-            SPORE_PROXY_ASSERT(_dispatch != nullptr);
-            return *_dispatch;
-        }
-
-        void reset() noexcept
-        {
-            SPORE_PROXY_ASSERT(_dispatch != nullptr);
-            SPORE_PROXY_ASSERT(_ptr != nullptr);
-
-            _dispatch->destroy(_ptr);
-            _dispatch->deallocate(_ptr);
-
-            _dispatch = nullptr;
-            _ptr = nullptr;
-        }
-
-      protected:
-        const proxy_storage_dispatch* _dispatch;
-        void* _ptr;
-    };
-
-    template <typename counter_t>
-    struct proxy_storage_shared : proxy_storage_allocation_base
-    {
-        using proxy_storage_allocation_base::proxy_storage_allocation_base;
-        using proxy_storage_allocation_base::operator=;
-
-        struct shared_block_base
-        {
-            counter_t counter;
-        };
-
-        template <typename value_t>
-        struct shared_block : shared_block_base
-        {
-            value_t value;
-        };
-
-        template <typename value_t, typename... args_t>
-        explicit proxy_storage_shared(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
-            : proxy_storage_allocation_base(std::in_place_type<shared_block<value_t>>, counter_t {}, value_t {std::forward<args_t>(args)...})
-        {
-        }
-
-        ~proxy_storage_shared()
-        {
-            if (counter()-- == 0)
-            {
-                proxy_storage_allocation_base::reset();
-            }
-        }
-
-        proxy_storage_shared(const proxy_storage_shared& other)
-        {
-            _dispatch = other._dispatch;
-            _ptr = other._ptr;
-
-            SPORE_PROXY_ASSERT(_dispatch != nullptr);
-            SPORE_PROXY_ASSERT(_ptr != nullptr);
-
-            ++counter();
-        }
-
-        proxy_storage_shared& operator=(const proxy_storage_shared& other)
-        {
-            reset();
-
-            _dispatch = other._dispatch;
-            _ptr = other._ptr;
-
-            SPORE_PROXY_ASSERT(_dispatch != nullptr);
-            SPORE_PROXY_ASSERT(_ptr != nullptr);
-
-            ++counter();
-
-            return *this;
-        }
-
-      private:
-        counter_t& counter() noexcept
-        {
-            SPORE_PROXY_ASSERT(_ptr != nullptr);
-            return static_cast<shared_block_base*>(_ptr)->counter;
-        }
-    };
-#else
     template <typename counter_t>
     struct proxy_storage_shared
     {
@@ -210,7 +85,7 @@ namespace spore
             std::swap(_ptr, other._ptr);
         }
 
-        proxy_storage_shared(const proxy_storage_shared& other)
+        proxy_storage_shared(const proxy_storage_shared& other) noexcept
         {
             _dispatch = other._dispatch;
             _ptr = other._ptr;
@@ -229,7 +104,7 @@ namespace spore
             return *this;
         }
 
-        proxy_storage_shared& operator=(const proxy_storage_shared& other)
+        proxy_storage_shared& operator=(const proxy_storage_shared& other) noexcept
         {
             reset();
 
@@ -287,7 +162,6 @@ namespace spore
             return static_cast<shared_block<std::byte>*>(_ptr)->counter;
         }
     };
-#endif
 
     struct proxy_storage_unique
     {
