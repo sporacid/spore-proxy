@@ -74,6 +74,7 @@ namespace spore
         explicit proxy_storage_shared(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
             shared_block<value_t>* block = new shared_block<value_t> {.counter {1}, .value {std::forward<args_t>(args)...}};
+
             _dispatch = std::addressof(proxy_storage_dispatch::get<shared_block<value_t>>());
             _counter = std::addressof(block->counter);
             _ptr = std::addressof(block->value);
@@ -96,7 +97,7 @@ namespace spore
         {
             reset();
 
-            *this = proxy_storage_shared{other};
+            *this = proxy_storage_shared {other};
 
             return *this;
         }
@@ -182,10 +183,13 @@ namespace spore
 
         void reset() noexcept
         {
-            if (_dispatch != nullptr and _ptr != nullptr)
+            if (_dispatch != nullptr)
             {
+                SPORE_PROXY_ASSERT(_ptr != nullptr);
+
                 _dispatch->destroy(_ptr);
                 _dispatch->deallocate(_ptr);
+
                 _dispatch = nullptr;
                 _ptr = nullptr;
             }
@@ -216,11 +220,10 @@ namespace spore
         {
             _dispatch = other._dispatch;
 
-            if (_dispatch != nullptr)
-            {
-                _ptr = _dispatch->allocate();
-                _dispatch->copy(ptr(), other.ptr());
-            }
+            SPORE_PROXY_ASSERT(_dispatch != nullptr);
+
+            _ptr = _dispatch->allocate();
+            _dispatch->copy(ptr(), other.ptr());
         }
 
         ~proxy_storage_value() noexcept
@@ -242,11 +245,10 @@ namespace spore
 
             _dispatch = other._dispatch;
 
-            if (_dispatch != nullptr)
-            {
-                _ptr = _dispatch->allocate();
-                _dispatch->copy(ptr(), other.ptr());
-            }
+            SPORE_PROXY_ASSERT(_dispatch != nullptr);
+
+            _ptr = _dispatch->allocate();
+            _dispatch->copy(ptr(), other.ptr());
 
             return *this;
         }
@@ -258,10 +260,13 @@ namespace spore
 
         void reset() noexcept
         {
-            if (_dispatch != nullptr and _ptr != nullptr)
+            if (_dispatch != nullptr)
             {
+                SPORE_PROXY_ASSERT(_ptr != nullptr);
+
                 _dispatch->destroy(_ptr);
                 _dispatch->deallocate(_ptr);
+
                 _dispatch = nullptr;
                 _ptr = nullptr;
             }

@@ -65,46 +65,6 @@ namespace spore
         }
     };
 
-#if 0
-    template <typename facade_t>
-    struct SPORE_PROXY_ENFORCE_EBCO proxy_pointer_semantics
-    {
-        facade_t* operator->() const
-        {
-            return std::addressof(_facade);
-        }
-
-        facade_t& operator*() const
-        {
-            return _facade;
-        }
-
-      private:
-        SPORE_PROXY_ENFORCE_NO_UNIQUE_ADDRESS mutable facade_t _facade;
-    };
-
-    template <typename facade_t>
-    struct SPORE_PROXY_ENFORCE_EBCO proxy_forward_semantics
-    {
-        using facade_reference_type = facade_t&&;
-        using facade_pointer_type = std::remove_reference_t<facade_t>*;
-        using facade_value_type = std::decay_t<facade_t>;
-
-        facade_pointer_type operator->() const
-        {
-            return std::addressof(_facade);
-        }
-
-        facade_reference_type operator*() const
-        {
-            return std::forward<facade_t>(_facade);
-        }
-
-      private:
-        SPORE_PROXY_ENFORCE_NO_UNIQUE_ADDRESS facade_value_type _facade;
-    };
-#endif
-
     template <typename value_t>
     struct is_proxy_semantics : std::false_type
     {
