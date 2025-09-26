@@ -44,16 +44,16 @@ namespace spore::benchmarks
 
     void output_results(const std::span<const result> results)
     {
-        std::cout << std::format("| {0:-^15} | {0:-^10} |", "") << std::endl;
-        std::cout << std::format("| {:<15} | {:>10} |", "Name", "Seconds") << std::endl;
-        std::cout << std::format("| {0:-^15} | {0:-^10} |", "") << std::endl;
+        std::cout << std::format("| {0:-^25} | {0:-^10} |", "") << std::endl;
+        std::cout << std::format("| {:<25} | {:>10} |", "Name", "Seconds") << std::endl;
+        std::cout << std::format("| {0:-^25} | {0:-^10} |", "") << std::endl;
 
         for (const result& result : results)
         {
-            std::cout << std::format("| {:<15} | {:>10.4f} |", result.name, result.time) << std::endl;
+            std::cout << std::format("| {:<25} | {:>10.4f} |", result.name, result.time) << std::endl;
         }
 
-        std::cout << std::format("| {0:-^15} | {0:-^10} |", "") << std::endl;
+        std::cout << std::format("| {0:-^25} | {0:-^10} |", "") << std::endl;
     }
 
     template <typename func_t>
@@ -328,13 +328,8 @@ int main()
 #endif
 
     {
-        unique_proxy<benchmarks::spore::static_::facade> facade = proxies::make_unique(benchmarks::spore::static_::impl {});
-        benchmark.template operator()<work_value>("spore static (unique)", facade);
-    }
-
-    {
-        shared_proxy<benchmarks::spore::static_::facade> facade = proxies::make_shared(benchmarks::spore::static_::impl {});
-        benchmark.template operator()<work_value>("spore static (shared)", facade);
+        inline_proxy<benchmarks::spore::static_::facade, benchmarks::spore::impl> facade = proxies::make_inline(benchmarks::spore::static_::impl {});
+        benchmark.template operator()<work_value>("spore static (inline)", facade);
     }
 
     {
@@ -343,14 +338,29 @@ int main()
     }
 
     {
-        inline_proxy<benchmarks::spore::static_::facade, benchmarks::spore::impl> facade = proxies::make_inline(benchmarks::spore::static_::impl {});
-        benchmark.template operator()<work_value>("spore static (inline)", facade);
+        unique_proxy<benchmarks::spore::static_::facade> facade = proxies::make_unique(benchmarks::spore::static_::impl {});
+        benchmark.template operator()<work_value>("spore static (unique)", facade);
+    }
+
+    {
+        shared_proxy<benchmarks::spore::static_::facade> facade = proxies::make_shared(benchmarks::spore::static_::impl {});
+        benchmark.template operator()<work_pointer>("spore static (shared)", facade);
     }
 
     {
         const benchmarks::spore::impl impl;
         proxy_view<benchmarks::spore::static_::facade> facade = proxies::make_view(impl);
-        benchmark.template operator()<work_value>("spore static (view)", facade);
+        benchmark.template operator()<work_pointer>("spore static (view)", facade);
+    }
+
+    {
+        inline_proxy<benchmarks::spore::dynamic::facade, benchmarks::spore::dynamic::impl> facade = proxies::make_inline(benchmarks::spore::dynamic::impl {});
+        benchmark.template operator()<work_value>("spore dynamic (inline)", facade);
+    }
+
+    {
+        value_proxy<benchmarks::spore::dynamic::facade> facade = proxies::make_value(benchmarks::spore::dynamic::impl {});
+        benchmark.template operator()<work_value>("spore dynamic (value)", facade);
     }
 
     {
@@ -360,23 +370,13 @@ int main()
 
     {
         shared_proxy<benchmarks::spore::dynamic::facade> facade = proxies::make_shared(benchmarks::spore::dynamic::impl {});
-        benchmark.template operator()<work_value>("spore dynamic (shared)", facade);
-    }
-
-    {
-        value_proxy<benchmarks::spore::dynamic::facade> facade = proxies::make_value(benchmarks::spore::dynamic::impl {});
-        benchmark.template operator()<work_value>("spore dynamic (value)", facade);
-    }
-
-    {
-        inline_proxy<benchmarks::spore::dynamic::facade, benchmarks::spore::dynamic::impl> facade = proxies::make_inline(benchmarks::spore::dynamic::impl {});
-        benchmark.template operator()<work_value>("spore dynamic (inline)", facade);
+        benchmark.template operator()<work_pointer>("spore dynamic (shared)", facade);
     }
 
     {
         const benchmarks::spore::dynamic::impl impl;
         proxy_view<benchmarks::spore::dynamic::facade> facade = proxies::make_view(impl);
-        benchmark.template operator()<work_value>("spore dynamic (view)", facade);
+        benchmark.template operator()<work_pointer>("spore dynamic (view)", facade);
     }
 
     benchmarks::output_results(results);

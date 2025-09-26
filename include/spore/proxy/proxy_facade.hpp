@@ -2,6 +2,7 @@
 
 #include "spore/proxy/proxy_macros.hpp"
 #include "spore/proxy/proxy_storage.hpp"
+#include "spore/proxy/proxy_semantics.hpp"
 
 #include <type_traits>
 
@@ -47,10 +48,10 @@ namespace spore
     struct SPORE_PROXY_ENFORCE_EBCO proxy_facade : facades_t...
     {
       private:
-        template <any_proxy_facade, any_proxy_storage>
+        template <any_proxy_facade, any_proxy_storage, any_proxy_semantics>
         friend struct proxy;
 
-        template <any_proxy_facade>
+        template <any_proxy_facade, any_proxy_semantics>
         friend struct proxy_view;
 
         friend facade_t;

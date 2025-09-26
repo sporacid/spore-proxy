@@ -307,16 +307,16 @@ namespace spore
                 using facade_t = std::decay_t<self_t>;
                 using dispatch_t = typename select_dispatch_type<facade_t>::type;
                 using mapping_t = proxies::detail::dispatch_mapping<facade_t, func_t, self_t, return_t(args_t...)>;
+                using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
 
                 static_assert(std::is_empty_v<func_t>);
                 static_assert(std::is_empty_v<facade_t>);
 
                 proxies::detail::add_facade_mapping_once<facade_t, mapping_t>();
 
-                using proxy_base_t = std::conditional_t<std::is_const_v<std::remove_reference_t<self_t>>, const proxy_base, proxy_base>;
                 proxy_base_t& proxy = reinterpret_cast<proxy_base_t&>(self);
-
                 const auto dispatch = dispatch_t::template get_dispatch<mapping_t>(proxy.type_index());
+
                 SPORE_PROXY_ASSERT(dispatch != nullptr);
 
                 return dispatch(proxy.ptr(), std::forward<args_t>(args)...);

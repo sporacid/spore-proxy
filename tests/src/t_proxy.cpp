@@ -134,7 +134,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         static_assert(std::is_copy_constructible_v<value_proxy<facade>>);
         static_assert(std::is_copy_assignable_v<value_proxy<facade>>);
 
-        proxy p1 = proxy<facade, proxy_storage_value>(std::in_place_type<impl>);
+        proxy p1 =  proxies::make_value<facade, impl>();
         proxy p2 = p1;
 
         REQUIRE(p1.ptr() != p2.ptr());
@@ -150,7 +150,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         {
             impl impl;
             impl.destroyed = std::addressof(destroyed);
-            proxy _ = proxy<facade, proxy_storage_value>(std::in_place_type<decltype(impl)>, impl);
+            proxy _ = proxies::make_value<facade>(std::move(impl));
         }
 
         REQUIRE(destroyed);
@@ -255,7 +255,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         REQUIRE(p1.ptr() == p2.ptr());
 
-        p2.act();
+        p2->act();
 
         REQUIRE(flag);
     }

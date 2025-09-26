@@ -47,8 +47,10 @@
 
 #if defined(_MSC_VER)
 #    define SPORE_PROXY_ENFORCE_EBCO __declspec(empty_bases)
+#    define SPORE_PROXY_ENFORCE_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
 #else
 #    define SPORE_PROXY_ENFORCE_EBCO
+#    define SPORE_PROXY_ENFORCE_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #endif
 
 #if defined(_MSC_VER) && !defined(__clang__) && _MSC_VER >= 1937
