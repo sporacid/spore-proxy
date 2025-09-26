@@ -14,12 +14,57 @@
 #    define SPORE_PROXY_TEST_THREAD_COUNT 24
 #endif
 
+namespace spore::proxies::tests::static_asserts
+{
+    // clang-format off
+    struct facade : proxy_facade<facade> {};
+    struct impl {};
+    // clang-format on
+
+    static_assert(std::is_move_constructible_v<shared_proxy<facade>>);
+    static_assert(std::is_copy_constructible_v<shared_proxy<facade>>);
+    static_assert(std::is_move_assignable_v<shared_proxy<facade>>);
+    static_assert(std::is_copy_assignable_v<shared_proxy<facade>>);
+
+    static_assert(std::is_move_constructible_v<unique_proxy<facade>>);
+    static_assert(not std::is_copy_constructible_v<unique_proxy<facade>>);
+    static_assert(std::is_move_assignable_v<unique_proxy<facade>>);
+    static_assert(not std::is_copy_assignable_v<unique_proxy<facade>>);
+
+    static_assert(std::is_move_constructible_v<value_proxy<facade>>);
+    static_assert(std::is_copy_constructible_v<value_proxy<facade>>);
+    static_assert(std::is_move_assignable_v<value_proxy<facade>>);
+    static_assert(std::is_copy_assignable_v<value_proxy<facade>>);
+
+    static_assert(std::is_move_constructible_v<inline_proxy<facade, impl>>);
+    static_assert(std::is_copy_constructible_v<inline_proxy<facade, impl>>);
+    static_assert(std::is_move_assignable_v<inline_proxy<facade, impl>>);
+    static_assert(std::is_copy_assignable_v<inline_proxy<facade, impl>>);
+
+#define SPORE_PROXY_TESTS_STATIC_ASSERTS(Proxy, Facade)         \
+    static_assert(std::is_move_constructible_v<Proxy<Facade>>); \
+    static_assert(std::is_copy_constructible_v<Proxy<Facade>>); \
+    static_assert(std::is_move_assignable_v<Proxy<Facade>>);    \
+    static_assert(std::is_copy_assignable_v<Proxy<Facade>>);
+
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(non_owning_proxy, facade);
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(non_owning_proxy, const facade);
+
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade);
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade&);
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade&&);
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, const facade);
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, const facade&);
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, const facade&&);
+}
+
 TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_static<>), (spore::proxy_dispatch_dynamic<>) )
 {
     using namespace spore;
+
     using dispatch_type = TestType;
 
-    SECTION("basic facade")
+    SECTION("facade basics")
     {
         struct facade : proxy_facade<facade>
         {
@@ -48,327 +93,6 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         p.act();
 
         REQUIRE(flag);
-    }
-
-    SECTION("shared facade")
-    {
-        // clang-format off
-        struct facade : proxy_facade<facade> { using dispatch_type [[maybe_unused]] = dispatch_type; };
-        struct impl {};
-        // clang-format on
-
-        static_assert(std::is_move_constructible_v<shared_proxy<facade>>);
-        static_assert(std::is_copy_constructible_v<shared_proxy<facade>>);
-        static_assert(std::is_move_assignable_v<shared_proxy<facade>>);
-        static_assert(std::is_copy_assignable_v<shared_proxy<facade>>);
-
-        proxy p1 = proxies::make_shared<facade, impl>();
-        proxy p2 = p1;
-
-        REQUIRE(p1.ptr() == p2.ptr());
-
-        proxy p3 = std::move(p2);
-
-        REQUIRE(p1.ptr() == p3.ptr());
-    }
-
-    SECTION("unique facade")
-    {
-        // clang-format off
-        struct facade : proxy_facade<facade> { using dispatch_type [[maybe_unused]] = dispatch_type; };
-        struct impl {};
-        // clang-format on
-
-        static_assert(std::is_move_constructible_v<unique_proxy<facade>>);
-        static_assert(not std::is_copy_constructible_v<unique_proxy<facade>>);
-        static_assert(std::is_move_assignable_v<unique_proxy<facade>>);
-        static_assert(not std::is_copy_assignable_v<unique_proxy<facade>>);
-
-        proxy p1 = proxies::make_unique<facade, impl>();
-        proxy p2 = std::move(p1);
-
-        REQUIRE(p1.ptr() != p2.ptr());
-        REQUIRE(p2.ptr() != nullptr);
-        REQUIRE(p1.ptr() == nullptr);
-    }
-
-//    SECTION("value facade")
-//    {
-//        struct facade : proxy_facade<facade>
-//        {
-//            using dispatch_type [[maybe_unused]] = dispatch_type;
-//
-//            [[nodiscard]] bool copied() const
-//            {
-//                constexpr auto func = [](const auto& self) { return self.copied; };
-//                return proxies::dispatch<bool>(func, *this);
-//            }
-//        };
-//
-//        struct impl
-//        {
-//            bool* destroyed = nullptr;
-//            bool copied = false;
-//            int prevent_sbo[4];
-//
-//            impl() = default;
-//
-//            impl(const impl&) noexcept
-//            {
-//                copied = true;
-//            }
-//
-//            ~impl() noexcept
-//            {
-//                if (destroyed)
-//                {
-//                    *destroyed = true;
-//                }
-//            }
-//        };
-//
-//        static_assert(std::is_move_constructible_v<value_proxy<facade>>);
-//        static_assert(std::is_copy_constructible_v<value_proxy<facade>>);
-//        static_assert(std::is_move_assignable_v<value_proxy<facade>>);
-//        static_assert(std::is_copy_assignable_v<value_proxy<facade>>);
-//
-//        proxy p1 = proxies::make_value<facade, impl>();
-//        proxy p2 = p1;
-//
-//        REQUIRE(p1.ptr() != p2.ptr());
-//        REQUIRE(p2.copied());
-//
-//        const void* ptr = p1.ptr();
-//        proxy p3 = std::move(p1);
-//
-//        REQUIRE(p1.ptr() == nullptr);
-//        REQUIRE(p3.ptr() == ptr);
-//
-//        bool destroyed = false;
-//        {
-//            impl impl;
-//            impl.destroyed = std::addressof(destroyed);
-//            proxy _ = proxies::make_value<facade>(std::move(impl));
-//        }
-//
-//        REQUIRE(destroyed);
-//    }
-
-    SECTION("inline facade")
-    {
-        struct facade : proxy_facade<facade>
-        {
-            using dispatch_type [[maybe_unused]] = dispatch_type;
-
-            [[nodiscard]] bool copied() const
-            {
-                constexpr auto func = [](const auto& self) { return self.copied; };
-                return proxies::dispatch<bool>(func, *this);
-            }
-
-            [[nodiscard]] bool moved() const
-            {
-                constexpr auto func = [](const auto& self) { return self.moved; };
-                return proxies::dispatch<bool>(func, *this);
-            }
-        };
-
-        struct impl
-        {
-            bool* destroyed = nullptr;
-            bool copied = false;
-            bool moved = false;
-
-            impl() = default;
-
-            impl(const impl&) noexcept
-            {
-                copied = true;
-            }
-
-            impl(impl&&) noexcept
-            {
-                moved = true;
-            }
-
-            impl& operator=(const impl&)
-            {
-                copied = true;
-                return *this;
-            }
-
-            impl& operator=(impl&&)
-            {
-                moved = true;
-                return *this;
-            }
-
-            ~impl() noexcept
-            {
-                if (destroyed)
-                {
-                    *destroyed = true;
-                }
-            }
-        };
-
-        static_assert(std::is_move_constructible_v<inline_proxy<facade, impl>>);
-        static_assert(std::is_copy_constructible_v<inline_proxy<facade, impl>>);
-        static_assert(std::is_move_assignable_v<inline_proxy<facade, impl>>);
-        static_assert(std::is_copy_assignable_v<inline_proxy<facade, impl>>);
-
-        proxy p1 = proxies::make_inline<facade, impl>();
-        proxy p2 = p1;
-
-        REQUIRE(p2.copied());
-        REQUIRE_FALSE(p2.moved());
-
-        proxy p3 = std::move(p1);
-
-        REQUIRE(p3.moved());
-        REQUIRE_FALSE(p3.copied());
-
-        bool destroyed = false;
-        {
-            impl impl;
-            impl.destroyed = std::addressof(destroyed);
-            proxy _ = proxies::make_inline<facade>(impl);
-        }
-
-        REQUIRE(destroyed);
-    }
-
-    SECTION("non-owning facade")
-    {
-        struct facade : proxy_facade<facade>
-        {
-            using dispatch_type [[maybe_unused]] = dispatch_type;
-
-            void act()
-            {
-                constexpr auto func = [](auto& self) { self.act(); };
-                proxies::dispatch(func, *this);
-            }
-        };
-
-        struct impl
-        {
-            bool flag = false;
-
-            void act()
-            {
-                flag = true;
-            }
-        };
-
-        constexpr auto static_asserts = []<typename facade_t> {
-            static_assert(std::is_move_constructible_v<non_owning_proxy<facade_t>>);
-            static_assert(std::is_copy_constructible_v<non_owning_proxy<facade_t>>);
-            static_assert(std::is_move_assignable_v<non_owning_proxy<facade_t>>);
-            static_assert(std::is_copy_assignable_v<non_owning_proxy<facade_t>>);
-        };
-
-        static_asserts.template operator()<facade>();
-        static_asserts.template operator()<const facade>();
-
-        impl impl;
-        proxy p = proxies::make_non_owning<facade>(impl);
-
-        REQUIRE(p.ptr() == std::addressof(impl));
-
-        p->act();
-
-        REQUIRE(impl.flag);
-    }
-
-    SECTION("forward facade")
-    {
-        struct facade : proxy_facade<facade>
-        {
-            using dispatch_type [[maybe_unused]] = dispatch_type;
-
-            void act() &
-            {
-                constexpr auto func = []<typename self_t>(self_t&& self) { std::forward<self_t>(self).act(); };
-                proxies::dispatch(func, *this);
-            }
-
-            void act() &&
-            {
-                constexpr auto func = []<typename self_t>(self_t&& self) { std::forward<self_t>(self).act(); };
-                proxies::dispatch(func, std::move(*this));
-            }
-
-            void act() const&
-            {
-                constexpr auto func = []<typename self_t>(self_t&& self) { std::forward<self_t>(self).act(); };
-                proxies::dispatch(func, *this);
-            }
-        };
-
-        struct impl
-        {
-            bool flag_ref = false;
-            bool flag_temp_ref = false;
-            mutable bool flag_const_ref = false;
-
-            void act() &
-            {
-                flag_ref = true;
-            }
-
-            void act() &&
-            {
-                flag_temp_ref = true;
-            }
-
-            void act() const&
-            {
-                flag_const_ref = true;
-            }
-        };
-
-        constexpr auto static_asserts = []<typename facade_t> {
-            static_assert(std::is_move_constructible_v<forward_proxy<facade_t>>);
-            static_assert(std::is_copy_constructible_v<forward_proxy<facade_t>>);
-            static_assert(std::is_move_assignable_v<forward_proxy<facade_t>>);
-            static_assert(std::is_copy_assignable_v<forward_proxy<facade_t>>);
-        };
-
-        static_asserts.template operator()<facade>();
-        static_asserts.template operator()<facade&>();
-        static_asserts.template operator()<facade&&>();
-        static_asserts.template operator()<const facade>();
-        static_asserts.template operator()<const facade&>();
-
-        {
-            impl impl_;
-            proxy p = proxies::make_forward<facade>(impl_);
-
-            p.get().act();
-
-            REQUIRE(p.ptr() == std::addressof(impl_));
-            REQUIRE(impl_.flag_ref);
-        }
-
-        {
-            const impl impl_;
-            proxy p = proxies::make_forward<facade>(impl_);
-
-            p.get().act();
-
-            REQUIRE(p.ptr() == std::addressof(impl_));
-            REQUIRE(impl_.flag_const_ref);
-        }
-
-        {
-            proxy p = proxies::make_forward<facade>(impl {});
-
-            p.get().act();
-
-            impl& impl_ = *reinterpret_cast<impl*>(p.ptr());
-            REQUIRE(impl_.flag_temp_ref);
-        }
     }
 
     SECTION("dispatch or throw")
@@ -417,9 +141,9 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         REQUIRE(result == int {});
     }
 
-    SECTION("dispatch forward")
+    SECTION("dispatch forwarding")
     {
-        SECTION("dispatch forward r-value ref")
+        SECTION("r-value")
         {
             struct facade : proxy_facade<facade>
             {
@@ -439,7 +163,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             std::move(p).act();
         }
 
-        SECTION("dispatch forward l-value ref")
+        SECTION("l-value")
         {
             struct facade : proxy_facade<facade>
             {
@@ -459,7 +183,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             p.act();
         }
 
-        SECTION("dispatch forward const ref")
+        SECTION("const l-value")
         {
             struct facade : proxy_facade<facade>
             {
