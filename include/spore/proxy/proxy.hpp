@@ -8,49 +8,6 @@
 
 namespace spore
 {
-#if 0
-    template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
-    struct proxy;
-
-    template <any_proxy_facade facade_t, any_proxy_semantics semantics_t = proxy_pointer_semantics<facade_t>>
-    struct SPORE_PROXY_ENFORCE_EBCO proxy_view final : semantics_t, proxy_base
-    {
-        constexpr proxy_view() = default;
-
-        template <typename value_t>
-        constexpr explicit proxy_view(value_t&& value) noexcept
-            : proxy_base(proxies::detail::type_index<facade_t, std::decay_t<value_t>>())
-        {
-            proxies::detail::add_facade<facade_t>();
-            proxies::detail::add_facade_value_once<facade_t, std::decay_t<value_t>>();
-
-            if constexpr (std::is_const_v<std::remove_reference_t<value_t>>)
-            {
-                _ptr = const_cast<std::decay_t<value_t>*>(std::addressof(value));
-            }
-            else
-            {
-                _ptr = std::addressof(value);
-            }
-        }
-
-        constexpr proxy_view(const proxy_view&) noexcept = default;
-        constexpr proxy_view(proxy_view&&) noexcept = default;
-
-        template <any_proxy_storage storage_t, any_proxy_semantics other_semantics_t>
-        constexpr proxy_view(SPORE_PROXY_LIFETIME_BOUND const proxy<facade_t, storage_t, other_semantics_t>& proxy) noexcept;
-
-        template <any_proxy_storage storage_t, any_proxy_semantics other_semantics_t>
-        constexpr proxy_view(SPORE_PROXY_LIFETIME_BOUND proxy<facade_t, storage_t, other_semantics_t>& proxy) noexcept;
-
-        template <any_proxy_storage storage_t, any_proxy_semantics other_semantics_t>
-        constexpr proxy_view(SPORE_PROXY_LIFETIME_BOUND proxy<facade_t, storage_t, other_semantics_t>&& proxy) noexcept;
-
-        constexpr proxy_view& operator=(const proxy_view&) noexcept = default;
-        constexpr proxy_view& operator=(proxy_view&&) noexcept = default;
-    };
-#endif
-
     template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t = proxy_value_semantics<facade_t>>
     struct SPORE_PROXY_ENFORCE_EBCO proxy final : semantics_t, proxy_base
     {
@@ -101,73 +58,6 @@ namespace spore
       private:
         storage_t _storage;
     };
-
-#if 0
-    template <any_proxy_storage storage_t, typename value_t, typename... args_t>
-    struct proxy_auto_cast
-    {
-        std::tuple<args_t&&...> args;
-
-        constexpr explicit proxy_auto_cast(args_t&&... args)
-            : args(std::tuple<args_t&&...>(std::forward<args_t>(args)...))
-        {
-        }
-
-        template <any_proxy_facade facade_t, any_proxy_semantics semantics_t>
-        constexpr operator proxy<facade_t, storage_t, semantics_t>() && noexcept(std::is_nothrow_constructible_v<proxy<facade_t, storage_t, semantics_t>, std::in_place_type_t<std::decay_t<value_t>>, args_t&&...>)
-        {
-            return std::move(*this).template cast_to_proxy<facade_t, semantics_t>(std::make_index_sequence<sizeof...(args_t)>());
-        }
-
-      private:
-        template <any_proxy_facade facade_t, any_proxy_semantics semantics_t, std::size_t... indices_v>
-        constexpr proxy<facade_t, storage_t, semantics_t> cast_to_proxy(std::index_sequence<indices_v...>) && noexcept(std::is_nothrow_constructible_v<proxy<facade_t, storage_t, semantics_t>, std::in_place_type_t<std::decay_t<value_t>>, args_t&&...>)
-        {
-            return proxy<facade_t, storage_t, semantics_t> {std::in_place_type<value_t>, std::forward<args_t>(std::get<indices_v>(args))...};
-        }
-    };
-
-    template <typename value_t>
-    struct proxy_view_auto_cast
-    {
-        value_t&& value;
-
-        constexpr explicit proxy_view_auto_cast(value_t&& value)
-            : value(std::forward<value_t&&>(value))
-        {
-        }
-
-        template <any_proxy_facade facade_t, any_proxy_semantics semantics_t>
-        constexpr operator proxy_view<facade_t, semantics_t>() && noexcept(std::is_nothrow_constructible_v<proxy_view<facade_t>, value_t&>)
-        {
-            return proxy_view<facade_t, semantics_t> {std::forward<value_t&&>(value)};
-        }
-    };
-
-    template <any_proxy_facade facade_t, any_proxy_semantics semantics_t>
-    template <any_proxy_storage storage_t, any_proxy_semantics other_semantics_t>
-    constexpr proxy_view<facade_t, semantics_t>::proxy_view(const proxy<facade_t, storage_t, other_semantics_t>& proxy) noexcept
-        : proxy_base(proxy.type_index())
-    {
-        _ptr = proxy.ptr();
-    }
-
-    template <any_proxy_facade facade_t, any_proxy_semantics semantics_t>
-    template <any_proxy_storage storage_t, any_proxy_semantics other_semantics_t>
-    constexpr proxy_view<facade_t, semantics_t>::proxy_view(proxy<facade_t, storage_t, other_semantics_t>& proxy) noexcept
-        : proxy_base(proxy.type_index())
-    {
-        _ptr = proxy.ptr();
-    }
-
-    template <any_proxy_facade facade_t, any_proxy_semantics semantics_t>
-    template <any_proxy_storage storage_t, any_proxy_semantics other_semantics_t>
-    constexpr proxy_view<facade_t, semantics_t>::proxy_view(proxy<facade_t, storage_t, other_semantics_t>&& proxy) noexcept
-        : proxy_base(proxy.type_index())
-    {
-        _ptr = proxy.ptr();
-    }
-#endif
 
     template <any_proxy_facade facade_t, typename value_t>
     using inline_proxy = proxy<facade_t, proxy_storage_inline<value_t>, proxy_value_semantics<facade_t>>;
