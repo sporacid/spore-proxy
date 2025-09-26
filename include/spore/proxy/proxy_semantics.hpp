@@ -68,15 +68,7 @@ namespace spore
 
         facade_t&& operator*() const
         {
-            return std::forward<facade_t&&>(operator->());
-            // if constexpr (is_const)
-            // {
-            //     return std::forward<facade_t&&>(*static_cast<std::remove_reference_t<facade_t>*>(this));
-            // }
-            // else
-            // {
-            //     return std::forward<facade_t&&>(*const_cast<std::remove_reference_t<facade_t>*>(static_cast<const std::remove_reference_t<facade_t>*>(this)));
-            // }
+            return std::forward<facade_t&&>(*operator->());
         }
     };
 

@@ -23,7 +23,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type = dispatch_type;
+            using dispatch_type [[maybe_unused]] = dispatch_type;
 
             void act()
             {
@@ -53,14 +53,13 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     SECTION("shared facade")
     {
         // clang-format off
-        struct facade : proxy_facade<facade> { using dispatch_type = dispatch_type; };
+        struct facade : proxy_facade<facade> { using dispatch_type [[maybe_unused]] = dispatch_type; };
         struct impl {};
         // clang-format on
 
         static_assert(std::is_move_constructible_v<shared_proxy<facade>>);
-        static_assert(std::is_move_assignable_v<shared_proxy<facade>>);
-
         static_assert(std::is_copy_constructible_v<shared_proxy<facade>>);
+        static_assert(std::is_move_assignable_v<shared_proxy<facade>>);
         static_assert(std::is_copy_assignable_v<shared_proxy<facade>>);
 
         proxy p1 = proxies::make_shared<facade, impl>();
@@ -76,14 +75,13 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     SECTION("unique facade")
     {
         // clang-format off
-        struct facade : proxy_facade<facade> { using dispatch_type = dispatch_type; };
+        struct facade : proxy_facade<facade> { using dispatch_type [[maybe_unused]] = dispatch_type; };
         struct impl {};
         // clang-format on
 
         static_assert(std::is_move_constructible_v<unique_proxy<facade>>);
-        static_assert(std::is_move_assignable_v<unique_proxy<facade>>);
-
         static_assert(not std::is_copy_constructible_v<unique_proxy<facade>>);
+        static_assert(std::is_move_assignable_v<unique_proxy<facade>>);
         static_assert(not std::is_copy_assignable_v<unique_proxy<facade>>);
 
         proxy p1 = proxies::make_unique<facade, impl>();
@@ -98,7 +96,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type = dispatch_type;
+            using dispatch_type [[maybe_unused]] = dispatch_type;
 
             [[nodiscard]] bool copied() const
             {
@@ -111,6 +109,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         {
             bool* destroyed = nullptr;
             bool copied = false;
+            int prevent_sbo[4];
 
             impl() = default;
 
@@ -129,9 +128,8 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         };
 
         static_assert(std::is_move_constructible_v<value_proxy<facade>>);
-        static_assert(std::is_move_assignable_v<value_proxy<facade>>);
-
         static_assert(std::is_copy_constructible_v<value_proxy<facade>>);
+        static_assert(std::is_move_assignable_v<value_proxy<facade>>);
         static_assert(std::is_copy_assignable_v<value_proxy<facade>>);
 
         proxy p1 = proxies::make_value<facade, impl>();
@@ -160,11 +158,17 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type = dispatch_type;
+            using dispatch_type [[maybe_unused]] = dispatch_type;
 
             [[nodiscard]] bool copied() const
             {
                 constexpr auto func = [](const auto& self) { return self.copied; };
+                return proxies::dispatch<bool>(func, *this);
+            }
+
+            [[nodiscard]] bool moved() const
+            {
+                constexpr auto func = [](const auto& self) { return self.moved; };
                 return proxies::dispatch<bool>(func, *this);
             }
         };
@@ -173,12 +177,30 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         {
             bool* destroyed = nullptr;
             bool copied = false;
+            bool moved = false;
 
             impl() = default;
 
             impl(const impl&) noexcept
             {
                 copied = true;
+            }
+
+            impl(impl&&) noexcept
+            {
+                moved = true;
+            }
+
+            impl& operator=(const impl&)
+            {
+                copied = true;
+                return *this;
+            }
+
+            impl& operator=(impl&&)
+            {
+                moved = true;
+                return *this;
             }
 
             ~impl() noexcept
@@ -191,23 +213,19 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         };
 
         static_assert(std::is_move_constructible_v<inline_proxy<facade, impl>>);
-        static_assert(std::is_move_assignable_v<inline_proxy<facade, impl>>);
-
         static_assert(std::is_copy_constructible_v<inline_proxy<facade, impl>>);
+        static_assert(std::is_move_assignable_v<inline_proxy<facade, impl>>);
         static_assert(std::is_copy_assignable_v<inline_proxy<facade, impl>>);
 
         proxy p1 = proxies::make_inline<facade, impl>();
         proxy p2 = p1;
 
-        REQUIRE(p1.ptr() != p2.ptr());
-        REQUIRE(p2.ptr() != nullptr);
         REQUIRE(p2.copied());
+        REQUIRE_FALSE(p2.moved());
 
-        const void* ptr = p1.ptr();
         proxy p3 = std::move(p1);
 
-        REQUIRE(p1.ptr() == nullptr);
-        REQUIRE(p3.ptr() == ptr);
+        REQUIRE(p3.moved());
         REQUIRE_FALSE(p3.copied());
 
         bool destroyed = false;
@@ -224,7 +242,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type = dispatch_type;
+            using dispatch_type [[maybe_unused]] = dispatch_type;
 
             void act()
             {
@@ -267,17 +285,23 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type = dispatch_type;
+            using dispatch_type [[maybe_unused]] = dispatch_type;
 
-            void act()
+            void act() &
             {
-                constexpr auto func = [](auto& self) { self.act(); };
+                constexpr auto func = []<typename self_t>(self_t&& self) { std::forward<self_t>(self).act(); };
                 proxies::dispatch(func, *this);
             }
 
-            void act() const
+            void act() &&
             {
-                constexpr auto func = [](auto& self) { self.act(); };
+                constexpr auto func = []<typename self_t>(self_t&& self) { std::forward<self_t>(self).act(); };
+                proxies::dispatch(func, std::move(*this));
+            }
+
+            void act() const&
+            {
+                constexpr auto func = []<typename self_t>(self_t&& self) { std::forward<self_t>(self).act(); };
                 proxies::dispatch(func, *this);
             }
         };
@@ -287,7 +311,6 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             bool flag_ref = false;
             bool flag_temp_ref = false;
             mutable bool flag_const_ref = false;
-            mutable bool flag_const_temp_ref = false;
 
             void act() &
             {
@@ -303,11 +326,6 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             {
                 flag_const_ref = true;
             }
-
-            void act() const&&
-            {
-                flag_const_temp_ref = true;
-            }
         };
 
         constexpr auto static_asserts = []<typename facade_t> {
@@ -322,7 +340,6 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         static_asserts.template operator()<facade&&>();
         static_asserts.template operator()<const facade>();
         static_asserts.template operator()<const facade&>();
-        static_asserts.template operator()<const facade&&>();
 
         {
             impl impl_;
@@ -347,19 +364,10 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         {
             proxy p = proxies::make_forward<facade>(impl {});
 
-            p->act();
+            (*p).act();
 
             impl& impl_ = *reinterpret_cast<impl*>(p.ptr());
             REQUIRE(impl_.flag_temp_ref);
-        }
-
-        {
-            proxy p = proxies::make_forward<facade>([]() -> const impl { return impl {}; }());
-
-            p->act();
-
-            impl& impl_ = *reinterpret_cast<impl*>(p.ptr());
-            REQUIRE(impl_.flag_const_temp_ref);
         }
     }
 
@@ -367,7 +375,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type = dispatch_type;
+            using dispatch_type [[maybe_unused]] = dispatch_type;
 
             void act() const
             {
@@ -389,7 +397,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type = dispatch_type;
+            using dispatch_type [[maybe_unused]] = dispatch_type;
 
             int act() const
             {
@@ -494,7 +502,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         struct facade : proxy_facade<facade, facade_base1, facade_base2>
         {
-            using dispatch_type = dispatch_type;
+            using dispatch_type [[maybe_unused]] = dispatch_type;
         };
 
         struct impl
@@ -552,7 +560,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type = proxies::tests::test_dispatch;
+            using dispatch_type [[maybe_unused]] = proxies::tests::test_dispatch;
 
             void act()
             {

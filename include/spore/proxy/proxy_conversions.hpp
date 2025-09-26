@@ -1,0 +1,32 @@
+#pragma once
+
+#include "spore/proxy/proxy_facade.hpp"
+#include "spore/proxy/proxy_semantics.hpp"
+#include "spore/proxy/proxy_storage.hpp"
+
+#include <concepts>
+
+namespace spore
+{
+    template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
+    struct proxy;
+
+    template <typename proxy_t, typename other_proxy_t>
+    struct proxy_conversions
+    {
+        static constexpr void convert_proxy(proxy_t& proxy, const other_proxy_t& other_proxy) = delete;
+        static constexpr void convert_proxy(proxy_t& proxy, other_proxy_t&& other_proxy) = delete;
+    };
+
+    template <typename proxy_t, typename other_proxy_t>
+    constexpr bool is_nothrow_proxy_copy_convertible_v = std::is_nothrow_invocable_v<decltype(proxy_conversions<proxy_t, other_proxy_t>::convert_proxy), proxy_t&, const other_proxy_t&>;
+
+    template <typename proxy_t, typename other_proxy_t>
+    constexpr bool is_nothrow_proxy_move_convertible_v = std::is_nothrow_invocable_v<decltype(proxy_conversions<proxy_t, other_proxy_t>::convert_proxy), proxy_t&, other_proxy_t&&>;
+
+    template <typename proxy_t, typename other_proxy_t>
+    concept proxy_convertible_to = requires(proxy_t& proxy) {
+        { proxy_conversions<proxy_t, other_proxy_t>::convert_proxy(proxy, std::declval<const other_proxy_t&>()) } -> std::same_as<void>;
+        { proxy_conversions<proxy_t, other_proxy_t>::convert_proxy(proxy, std::declval<other_proxy_t &&>()) } -> std::same_as<void>;
+    };
+}

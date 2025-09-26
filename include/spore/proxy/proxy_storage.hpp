@@ -7,22 +7,21 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <variant>
 
 namespace spore
 {
-    // clang-format off
     template <typename storage_t>
-    concept any_proxy_storage = requires(const storage_t& storage)
-    {
+    concept any_proxy_storage = requires(const storage_t& storage) {
         { storage.ptr() } -> std::same_as<void*>;
     };
-    // clang-format on
 
     struct proxy_storage_dispatch
     {
         void* (*allocate)();
         void (*deallocate)(void*) noexcept;
         void (*destroy)(void*) noexcept;
+        void (*move)(void*, void*);
         void (*copy)(void*, const void*);
 
         template <typename value_t>
@@ -43,6 +42,22 @@ namespace spore
                     {
                         auto* value = static_cast<value_t*>(ptr);
                         std::destroy_at(value);
+                    }
+                },
+                .move = [](void* ptr, void* other_ptr) SPORE_PROXY_THROW_SPEC {
+                    if constexpr (std::is_trivially_move_constructible_v<value_t>)
+                    {
+                        std::memcpy(ptr, other_ptr, sizeof(value_t));
+                    }
+                    else if constexpr (std::is_move_constructible_v<value_t>)
+                    {
+                        auto* value = static_cast<value_t*>(ptr);
+                        auto* other_value = static_cast<value_t*>(other_ptr);
+                        std::construct_at(value, std::move(*other_value));
+                    }
+                    else
+                    {
+                        SPORE_PROXY_THROW("not movable");
                     }
                 },
                 .copy = [](void* ptr, const void* other_ptr) SPORE_PROXY_THROW_SPEC {
@@ -276,6 +291,130 @@ namespace spore
       private:
         const proxy_storage_dispatch* _dispatch = nullptr;
         void* _ptr = nullptr;
+    };
+
+    template <std::size_t size_v, std::size_t align_v = alignof(void*)>
+    struct proxy_storage_sbo
+    {
+        static_assert(size_v > 0);
+        static_assert(align_v <= size_v);
+
+        template <typename value_t, typename... args_t>
+        constexpr explicit proxy_storage_sbo(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
+            requires(fits<value_t>())
+        {
+            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
+            std::construct_at(static_cast<value_t*>(ptr()), std::forward<args_t>(args)...);
+        }
+
+        constexpr proxy_storage_sbo(const proxy_storage_sbo& other) SPORE_PROXY_THROW_SPEC
+        {
+            _dispatch = other._dispatch;
+
+            if (_dispatch != nullptr)
+            {
+                _dispatch->copy(ptr(), other.ptr());
+            }
+        }
+
+        constexpr proxy_storage_sbo(proxy_storage_sbo&& other) noexcept
+        {
+            _dispatch = other._dispatch;
+
+            if (_dispatch != nullptr)
+            {
+                _dispatch->move(ptr(), other.ptr());
+            }
+        }
+
+        constexpr ~proxy_storage_sbo() noexcept
+        {
+            reset();
+        }
+
+        constexpr proxy_storage_sbo& operator=(const proxy_storage_sbo& other) SPORE_PROXY_THROW_SPEC
+        {
+            reset();
+
+            _dispatch = other._dispatch;
+
+            if (_dispatch != nullptr)
+            {
+                _dispatch->copy(ptr(), other.ptr());
+            }
+
+            return *this;
+        }
+
+        constexpr proxy_storage_sbo& operator=(proxy_storage_sbo&& other) SPORE_PROXY_THROW_SPEC
+        {
+            reset();
+
+            _dispatch = other._dispatch;
+
+            if (_dispatch != nullptr)
+            {
+                _dispatch->move(ptr(), other.ptr());
+            }
+
+            return *this;
+        }
+
+        [[nodiscard]] constexpr void* ptr() const noexcept
+        {
+            return std::addressof(_storage[0]);
+        }
+
+        void reset() noexcept
+        {
+            if (_dispatch != nullptr)
+            {
+                _dispatch->destroy(ptr());
+                _dispatch = nullptr;
+            }
+        }
+
+        template <typename value_t>
+        static consteval bool fits()
+        {
+            constexpr bool is_size_compatible = sizeof(value_t) <= size_v;
+            constexpr bool is_alignment_compatible = align_v % alignof(value_t) == 0;
+            return is_size_compatible and is_alignment_compatible;
+        }
+
+      private:
+        const proxy_storage_dispatch* _dispatch = nullptr;
+        alignas(align_v) mutable std::byte _storage[size_v] {};
+    };
+
+    template <any_proxy_storage storage_fallback_t, std::size_t size_v = sizeof(storage_fallback_t), std::size_t align_v = alignof(storage_fallback_t)>
+    struct proxy_storage_sbo_or
+    {
+        proxy_storage_sbo_or() = default;
+
+        template <typename value_t, typename... args_t>
+        explicit proxy_storage_sbo_or(std::in_place_type_t<value_t> type, args_t&&... args) SPORE_PROXY_THROW_SPEC
+        {
+            if constexpr (storage_sbo_t::template fits<value_t>())
+            {
+                _storage.emplace(std::in_place_type<storage_sbo_t>, type, std::forward<args_t>(args)...);
+            }
+            else
+            {
+                _storage.emplace(std::in_place_type<storage_fallback_t>, type, std::forward<args_t>(args)...);
+            }
+        }
+
+        [[nodiscard]] void* ptr() const
+        {
+            constexpr auto visitor = [](const auto& storage) { return storage.ptr(); };
+            return std::visit(visitor, _storage.value());
+        }
+
+      private:
+        using storage_sbo_t = proxy_storage_sbo<size_v, align_v>;
+        using storage_variant_t = std::variant<storage_sbo_t, storage_fallback_t>;
+        std::optional<storage_variant_t> _storage;
     };
 
     template <typename value_t>

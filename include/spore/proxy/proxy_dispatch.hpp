@@ -209,13 +209,10 @@ namespace spore
                 }
             };
 
-            // clang-format off
             template <typename facade_t>
-            concept facade_dispatch_type_override = requires
-            {
+            concept facade_dispatch_type_override = requires {
                 { std::in_place_type<typename facade_t::dispatch_type> };
             };
-            // clang-format on
 
             template <typename facade_t>
             struct select_dispatch_type

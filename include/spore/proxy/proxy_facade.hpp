@@ -1,8 +1,8 @@
 #pragma once
 
 #include "spore/proxy/proxy_macros.hpp"
-#include "spore/proxy/proxy_storage.hpp"
 #include "spore/proxy/proxy_semantics.hpp"
+#include "spore/proxy/proxy_storage.hpp"
 
 #include <type_traits>
 
@@ -34,15 +34,12 @@ namespace spore
         }
     }
 
-    // clang-format off
     template <typename value_t>
-    concept any_proxy_facade = requires
-    {
+    concept any_proxy_facade = requires {
         std::is_empty_v<value_t>;
         std::is_default_constructible_v<value_t>;
         proxies::detail::is_proxy_facade<value_t>();
     };
-    // clang-format on
 
     template <typename facade_t, typename... facades_t>
     struct SPORE_PROXY_ENFORCE_EBCO proxy_facade : facades_t...
