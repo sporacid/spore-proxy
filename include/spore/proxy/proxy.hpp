@@ -11,7 +11,7 @@
 namespace spore
 {
     template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t = proxy_value_semantics<facade_t>>
-    struct SPORE_PROXY_ENFORCE_EBCO proxy final : semantics_t, proxy_base
+    struct SPORE_PROXY_ENFORCE_EBCO proxy final : semantics_t, private proxy_base
     {
         template <typename value_t, typename... args_t>
         constexpr explicit proxy(std::in_place_type_t<value_t> type, args_t&&... args)
@@ -117,6 +117,9 @@ namespace spore
         }
 
       private:
+        template <any_proxy proxy_t, any_proxy other_proxy_t>
+        friend struct proxy_conversion;
+
         storage_t _storage;
     };
 

@@ -144,6 +144,11 @@ namespace spore
             return _ptr != nullptr ? std::addressof(static_cast<shared_block<std::byte>*>(_ptr)->value) : nullptr;
         }
 
+        [[nodiscard]] const proxy_storage_dispatch* dispatch() const noexcept
+        {
+            return _dispatch;
+        }
+
         void reset() noexcept
         {
             if (_dispatch != nullptr)
@@ -222,6 +227,11 @@ namespace spore
         [[nodiscard]] void* ptr() const noexcept
         {
             return _ptr;
+        }
+
+        [[nodiscard]] const proxy_storage_dispatch* dispatch() const noexcept
+        {
+            return _dispatch;
         }
 
         void reset() noexcept
@@ -337,6 +347,11 @@ namespace spore
             return _ptr;
         }
 
+        [[nodiscard]] const proxy_storage_dispatch* dispatch() const noexcept
+        {
+            return _dispatch;
+        }
+
         void reset() noexcept
         {
             if (_dispatch != nullptr)
@@ -434,6 +449,11 @@ namespace spore
             return _dispatch != nullptr ? std::addressof(_storage[0]) : nullptr;
         }
 
+        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
+        {
+            return _dispatch;
+        }
+
         void reset() noexcept
         {
             if (_dispatch != nullptr)
@@ -480,6 +500,12 @@ namespace spore
             return _storage.has_value() ? std::visit(visitor, _storage.value()) : nullptr;
         }
 
+        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
+        {
+            constexpr auto visitor = [](const auto& storage) { return storage.dispatch(); };
+            return _storage.has_value() ? std::visit(visitor, _storage.value()) : nullptr;
+        }
+
         void reset() noexcept
         {
             _storage = std::nullopt;
@@ -507,6 +533,11 @@ namespace spore
             return _storage.has_value() ? std::addressof(_storage.value()) : nullptr;
         }
 
+        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
+        {
+            return std::addressof(proxy_storage_dispatch::get<value_t>());
+        }
+
         void reset() noexcept
         {
             _storage = std::nullopt;
@@ -519,7 +550,8 @@ namespace spore
     struct proxy_storage_non_owning
     {
         proxy_storage_non_owning()
-            : _ptr(nullptr)
+            : _ptr(nullptr),
+              _dispatch(nullptr)
         {
         }
 
@@ -527,18 +559,21 @@ namespace spore
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, value_t& value) noexcept
         {
             _ptr = std::addressof(value);
+            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
         }
 
         template <typename value_t>
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, value_t&& value) noexcept
         {
             _ptr = std::addressof(value);
+            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
         }
 
         template <typename value_t>
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, const value_t& value) noexcept
         {
             _ptr = std::addressof(const_cast<value_t&>(value));
+            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
         }
 
         [[nodiscard]] constexpr void* ptr() const noexcept
@@ -549,9 +584,16 @@ namespace spore
         constexpr void reset() noexcept
         {
             _ptr = nullptr;
+            _dispatch = nullptr;
+        }
+
+        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
+        {
+            return _dispatch;
         }
 
       private:
+        const proxy_storage_dispatch* _dispatch;
         void* _ptr;
     };
 }
