@@ -135,7 +135,7 @@ namespace spore
     using inline_proxy = proxy<facade_t, proxy_storage_inline<value_t>, proxy_value_semantics<facade_t>>;
 
     template <any_proxy_facade facade_t>
-    using value_proxy = proxy<facade_t, proxy_storage_sbo_or<proxy_storage_value>, proxy_value_semantics<facade_t>>;
+    using value_proxy = proxy<facade_t, proxy_storage_fallback<proxy_storage_sbo<16>, proxy_storage_value>, proxy_value_semantics<facade_t>>;
 
     template <any_proxy_facade facade_t>
     using unique_proxy = proxy<facade_t, proxy_storage_unique, proxy_value_semantics<facade_t>>;

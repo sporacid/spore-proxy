@@ -385,7 +385,7 @@ namespace spore
 
         template <typename value_t, typename... args_t>
         constexpr explicit proxy_storage_sbo(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
-            requires(fits<value_t>())
+            requires(is_compatible<value_t>())
         {
             _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
             std::construct_at(static_cast<value_t*>(ptr()), std::forward<args_t>(args)...);
@@ -463,35 +463,28 @@ namespace spore
             }
         }
 
+      private:
+        const proxy_storage_dispatch* _dispatch;
+        alignas(align_v) mutable std::byte _storage[size_v];
+
         template <typename value_t>
-        static consteval bool fits()
+        static consteval bool is_compatible()
         {
             constexpr bool is_size_compatible = sizeof(value_t) <= size_v;
             constexpr bool is_alignment_compatible = align_v % alignof(value_t) == 0;
             return is_size_compatible and is_alignment_compatible;
         }
-
-      private:
-        const proxy_storage_dispatch* _dispatch;
-        alignas(align_v) mutable std::byte _storage[size_v];
     };
 
-    template <any_proxy_storage storage_fallback_t, std::size_t size_v = sizeof(storage_fallback_t), std::size_t align_v = alignof(storage_fallback_t)>
-    struct proxy_storage_sbo_or
+    template <any_proxy_storage... storages_t>
+    struct proxy_storage_fallback
     {
-        proxy_storage_sbo_or() = default;
+        proxy_storage_fallback() = default;
 
         template <typename value_t, typename... args_t>
-        explicit proxy_storage_sbo_or(std::in_place_type_t<value_t> type, args_t&&... args) SPORE_PROXY_THROW_SPEC
+        explicit proxy_storage_fallback(std::in_place_type_t<value_t> type, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
-            if constexpr (storage_sbo_t::template fits<value_t>())
-            {
-                _storage.emplace(std::in_place_type<storage_sbo_t>, type, std::forward<args_t>(args)...);
-            }
-            else
-            {
-                _storage.emplace(std::in_place_type<storage_fallback_t>, type, std::forward<args_t>(args)...);
-            }
+            std::ignore = (... or try_construct<storages_t>(type, std::forward<args_t>(args)...));
         }
 
         [[nodiscard]] void* ptr() const noexcept
@@ -512,9 +505,21 @@ namespace spore
         }
 
       private:
-        using storage_sbo_t = proxy_storage_sbo<size_v, align_v>;
-        using storage_variant_t = std::variant<storage_sbo_t, storage_fallback_t>;
-        std::optional<storage_variant_t> _storage;
+        std::optional<std::variant<storages_t...>> _storage;
+
+        template <typename storage_t, typename value_t, typename... args_t>
+        [[nodiscard]] constexpr bool try_construct(std::in_place_type_t<value_t> type, args_t&&... args)
+        {
+            if constexpr (std::is_constructible_v<storage_t, std::in_place_type_t<value_t>, args_t&&...>)
+            {
+                _storage.emplace(std::in_place_type<storage_t>, type, std::forward<args_t>(args)...);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
     };
 
     template <typename value_t>
@@ -550,30 +555,30 @@ namespace spore
     struct proxy_storage_non_owning
     {
         proxy_storage_non_owning()
-            : _ptr(nullptr),
-              _dispatch(nullptr)
+            : _dispatch(nullptr),
+              _ptr(nullptr)
         {
         }
 
         template <typename value_t>
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, value_t& value) noexcept
         {
-            _ptr = std::addressof(value);
             _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
+            _ptr = std::addressof(value);
         }
 
         template <typename value_t>
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, value_t&& value) noexcept
         {
-            _ptr = std::addressof(value);
             _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
+            _ptr = std::addressof(value);
         }
 
         template <typename value_t>
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, const value_t& value) noexcept
         {
-            _ptr = std::addressof(const_cast<value_t&>(value));
             _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
+            _ptr = std::addressof(const_cast<value_t&>(value));
         }
 
         [[nodiscard]] constexpr void* ptr() const noexcept
@@ -583,8 +588,8 @@ namespace spore
 
         constexpr void reset() noexcept
         {
-            _ptr = nullptr;
             _dispatch = nullptr;
+            _ptr = nullptr;
         }
 
         [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept

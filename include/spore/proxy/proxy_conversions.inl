@@ -13,13 +13,6 @@ namespace spore
         proxy<facade_t, proxy_storage_non_owning, semantics_t>,
         proxy<facade_t, other_storage_t, other_semantics_t>>
     {
-        static constexpr proxy<facade_t, proxy_storage_non_owning, semantics_t> convert(const spore::proxy<facade_t, other_storage_t, other_semantics_t>& other) noexcept
-        {
-        }
-        static constexpr proxy<facade_t, proxy_storage_non_owning, semantics_t> convert(spore::proxy<facade_t, other_storage_t, other_semantics_t>&& other) noexcept
-        {
-        }
-
         static constexpr void copy_proxy(proxy<facade_t, proxy_storage_non_owning, semantics_t>& proxy, const spore::proxy<facade_t, other_storage_t, other_semantics_t>& other_proxy) noexcept
         {
         }
