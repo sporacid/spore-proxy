@@ -23,6 +23,28 @@ namespace spore
             _ptr = _storage.ptr();
         }
 
+        template <any_proxy_facade super_facade_t>
+        constexpr proxy(const proxy<super_facade_t, storage_t, semantics_t>& other)
+            noexcept(std::is_nothrow_copy_constructible_v<storage_t>)
+            requires std::is_copy_constructible_v<storage_t>
+            : proxy_base(other.type_index()), _storage(other._storage)
+        {
+            proxies::detail::add_facade<facade_t>();
+
+            _ptr = _storage.ptr();
+        }
+
+        template <any_proxy_facade super_facade_t>
+        constexpr proxy(proxy<super_facade_t, storage_t, semantics_t>&& other)
+            noexcept(std::is_nothrow_copy_constructible_v<storage_t>)
+            requires std::is_copy_constructible_v<storage_t>
+            : proxy_base(other.type_index()), _storage(std::move(other._storage))
+        {
+            proxies::detail::add_facade<facade_t>();
+
+            _ptr = _storage.ptr();
+        }
+
 #if 0
         template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
         constexpr proxy(const proxy<other_facade_t, other_storage_t, other_semantics_t>& other)

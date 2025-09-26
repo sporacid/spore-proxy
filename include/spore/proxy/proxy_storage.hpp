@@ -2,6 +2,7 @@
 
 #include "spore/proxy/proxy_macros.hpp"
 
+#include <algorithm>
 #include <concepts>
 #include <cstddef>
 #include <memory>
@@ -13,6 +14,7 @@ namespace spore
 {
     template <typename storage_t>
     concept any_proxy_storage = requires(const storage_t& storage) {
+        std::is_default_constructible_v<storage_t>;
         { storage.ptr() } -> std::same_as<void*>;
     };
 
@@ -86,6 +88,13 @@ namespace spore
     template <typename counter_t>
     struct proxy_storage_shared
     {
+        proxy_storage_shared()
+            : _dispatch(nullptr),
+              _counter(nullptr),
+              _ptr(nullptr)
+        {
+        }
+
         template <typename value_t, typename... args_t>
         explicit proxy_storage_shared(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
@@ -102,11 +111,13 @@ namespace spore
             _counter = other._counter;
             _ptr = other._ptr;
 
-            SPORE_PROXY_ASSERT(_dispatch != nullptr);
-            SPORE_PROXY_ASSERT(_counter != nullptr);
-            SPORE_PROXY_ASSERT(_ptr != nullptr);
+            if (_dispatch != nullptr)
+            {
+                SPORE_PROXY_ASSERT(_counter != nullptr);
+                SPORE_PROXY_ASSERT(_ptr != nullptr);
 
-            ++(*_counter);
+                ++(*_counter);
+            }
         }
 
         proxy_storage_shared& operator=(const proxy_storage_shared& other) noexcept
@@ -133,19 +144,21 @@ namespace spore
 
         void reset() noexcept
         {
-            SPORE_PROXY_ASSERT(_dispatch != nullptr);
-            SPORE_PROXY_ASSERT(_counter != nullptr);
-            SPORE_PROXY_ASSERT(_ptr != nullptr);
-
-            if ((*_counter)-- == 0)
+            if (_dispatch != nullptr)
             {
-                _dispatch->destroy(_ptr);
-                _dispatch->deallocate(_ptr);
-            }
+                SPORE_PROXY_ASSERT(_counter != nullptr);
+                SPORE_PROXY_ASSERT(_ptr != nullptr);
 
-            _dispatch = nullptr;
-            _counter = nullptr;
-            _ptr = nullptr;
+                if ((*_counter)-- == 0)
+                {
+                    _dispatch->destroy(_ptr);
+                    _dispatch->deallocate(_ptr);
+                }
+
+                _dispatch = nullptr;
+                _counter = nullptr;
+                _ptr = nullptr;
+            }
         }
 
       private:
@@ -163,6 +176,12 @@ namespace spore
 
     struct proxy_storage_unique
     {
+        proxy_storage_unique()
+            : _dispatch(nullptr),
+              _ptr(nullptr)
+        {
+        }
+
         template <typename value_t, typename... args_t>
         explicit proxy_storage_unique(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
@@ -212,12 +231,18 @@ namespace spore
         }
 
       private:
-        const proxy_storage_dispatch* _dispatch = nullptr;
-        void* _ptr = nullptr;
+        const proxy_storage_dispatch* _dispatch;
+        void* _ptr;
     };
 
     struct proxy_storage_value
     {
+        proxy_storage_value()
+            : _dispatch(nullptr),
+              _ptr(nullptr)
+        {
+        }
+
         template <typename value_t, typename... args_t>
         explicit proxy_storage_value(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
@@ -236,10 +261,11 @@ namespace spore
         {
             _dispatch = other._dispatch;
 
-            SPORE_PROXY_ASSERT(_dispatch != nullptr);
-
-            _ptr = _dispatch->allocate();
-            _dispatch->copy(ptr(), other.ptr());
+            if (_dispatch != nullptr)
+            {
+                _ptr = _dispatch->allocate();
+                _dispatch->copy(ptr(), other.ptr());
+            }
         }
 
         ~proxy_storage_value() noexcept
@@ -261,10 +287,11 @@ namespace spore
 
             _dispatch = other._dispatch;
 
-            SPORE_PROXY_ASSERT(_dispatch != nullptr);
-
-            _ptr = _dispatch->allocate();
-            _dispatch->copy(ptr(), other.ptr());
+            if (_dispatch != nullptr)
+            {
+                _ptr = _dispatch->allocate();
+                _dispatch->copy(ptr(), other.ptr());
+            }
 
             return *this;
         }
@@ -289,8 +316,8 @@ namespace spore
         }
 
       private:
-        const proxy_storage_dispatch* _dispatch = nullptr;
-        void* _ptr = nullptr;
+        const proxy_storage_dispatch* _dispatch;
+        void* _ptr;
     };
 
     template <std::size_t size_v, std::size_t align_v = alignof(void*)>
@@ -298,6 +325,12 @@ namespace spore
     {
         static_assert(size_v > 0);
         static_assert(align_v <= size_v);
+
+        proxy_storage_sbo()
+            : _dispatch(nullptr)
+        {
+            std::ranges::fill(_storage, 0);
+        }
 
         template <typename value_t, typename... args_t>
         constexpr explicit proxy_storage_sbo(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
@@ -383,8 +416,8 @@ namespace spore
         }
 
       private:
-        const proxy_storage_dispatch* _dispatch = nullptr;
-        alignas(align_v) mutable std::byte _storage[size_v] {};
+        const proxy_storage_dispatch* _dispatch;
+        alignas(align_v) mutable std::byte _storage[size_v];
     };
 
     template <any_proxy_storage storage_fallback_t, std::size_t size_v = sizeof(storage_fallback_t), std::size_t align_v = alignof(storage_fallback_t)>
@@ -420,6 +453,8 @@ namespace spore
     template <typename value_t>
     struct proxy_storage_inline
     {
+        proxy_storage_inline() = default;
+
         template <typename... args_t>
         constexpr explicit proxy_storage_inline(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
@@ -437,6 +472,11 @@ namespace spore
 
     struct proxy_storage_non_owning
     {
+        proxy_storage_non_owning()
+            : _ptr(nullptr)
+        {
+        }
+
         template <typename value_t>
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, value_t& value) noexcept
         {
