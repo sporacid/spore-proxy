@@ -54,21 +54,23 @@ namespace spore
 
         static constexpr bool is_const = std::is_const_v<std::remove_reference_t<facade_t>>;
 
-        std::remove_reference_t<facade_t>* operator->() const
+        facade_t&& get() const
         {
             if constexpr (is_const)
             {
-                return static_cast<std::remove_reference_t<facade_t>*>(this);
+                auto* ptr = static_cast<std::remove_reference_t<facade_t>*>(this);
+                return std::forward<facade_t&&>(*ptr);
             }
             else
             {
-                return const_cast<std::remove_reference_t<facade_t>*>(static_cast<const std::remove_reference_t<facade_t>*>(this));
+                auto* ptr = const_cast<std::remove_reference_t<facade_t>*>(static_cast<const std::remove_reference_t<facade_t>*>(this));
+                return std::forward<facade_t&&>(*ptr);
             }
         }
 
         facade_t&& operator*() const
         {
-            return std::forward<facade_t&&>(*operator->());
+            return get();
         }
     };
 

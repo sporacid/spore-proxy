@@ -13,9 +13,10 @@
 namespace spore
 {
     template <typename storage_t>
-    concept any_proxy_storage = requires(const storage_t& storage) {
+    concept any_proxy_storage = requires(storage_t& storage) {
         std::is_default_constructible_v<storage_t>;
         { storage.ptr() } -> std::same_as<void*>;
+        { storage.reset() } -> std::same_as<void>;
     };
 
     struct proxy_storage_dispatch
@@ -90,7 +91,6 @@ namespace spore
     {
         proxy_storage_shared()
             : _dispatch(nullptr),
-              _counter(nullptr),
               _ptr(nullptr)
         {
         }
@@ -101,22 +101,17 @@ namespace spore
             shared_block<value_t>* block = new shared_block<value_t> {.counter {1}, .value {std::forward<args_t>(args)...}};
 
             _dispatch = std::addressof(proxy_storage_dispatch::get<shared_block<value_t>>());
-            _counter = std::addressof(block->counter);
-            _ptr = std::addressof(block->value);
+            _ptr = block;
         }
 
         proxy_storage_shared(const proxy_storage_shared& other) noexcept
         {
             _dispatch = other._dispatch;
-            _counter = other._counter;
             _ptr = other._ptr;
 
             if (_dispatch != nullptr)
             {
-                SPORE_PROXY_ASSERT(_counter != nullptr);
-                SPORE_PROXY_ASSERT(_ptr != nullptr);
-
-                ++(*_counter);
+                ++counter();
             }
         }
 
@@ -129,8 +124,22 @@ namespace spore
             return *this;
         }
 
-        proxy_storage_shared(proxy_storage_shared&& other) noexcept = delete;
-        proxy_storage_shared& operator=(proxy_storage_shared&& other) noexcept = delete;
+        proxy_storage_shared(proxy_storage_shared&& other) noexcept
+        {
+            _dispatch = other._dispatch;
+            _ptr = other._ptr;
+
+            other._dispatch = nullptr;
+            other._ptr = nullptr;
+        }
+
+        proxy_storage_shared& operator=(proxy_storage_shared&& other) noexcept
+        {
+            std::swap(_dispatch, other._dispatch);
+            std::swap(_ptr, other._ptr);
+
+            return *this;
+        }
 
         ~proxy_storage_shared() noexcept
         {
@@ -139,26 +148,30 @@ namespace spore
 
         [[nodiscard]] void* ptr() const noexcept
         {
-            return _ptr;
+            return _ptr != nullptr ? std::addressof(static_cast<shared_block<std::byte>*>(_ptr)->value) : nullptr;
         }
 
         void reset() noexcept
         {
             if (_dispatch != nullptr)
             {
-                SPORE_PROXY_ASSERT(_counter != nullptr);
-                SPORE_PROXY_ASSERT(_ptr != nullptr);
-
-                if ((*_counter)-- == 0)
+                if (--counter() == 0)
                 {
+                    SPORE_PROXY_ASSERT(_ptr != nullptr);
+
                     _dispatch->destroy(_ptr);
                     _dispatch->deallocate(_ptr);
                 }
 
                 _dispatch = nullptr;
-                _counter = nullptr;
                 _ptr = nullptr;
             }
+        }
+
+        counter_t& counter() noexcept
+        {
+            SPORE_PROXY_ASSERT(_ptr != nullptr);
+            return static_cast<shared_block<std::byte>*>(_ptr)->counter;
         }
 
       private:
@@ -170,7 +183,6 @@ namespace spore
         };
 
         const proxy_storage_dispatch* _dispatch;
-        counter_t* _counter;
         void* _ptr;
     };
 
@@ -191,8 +203,11 @@ namespace spore
 
         proxy_storage_unique(proxy_storage_unique&& other) noexcept
         {
-            std::swap(_dispatch, other._dispatch);
-            std::swap(_ptr, other._ptr);
+            _dispatch = other._dispatch;
+            _ptr = other._ptr;
+
+            other._dispatch = nullptr;
+            other._ptr = nullptr;
         }
 
         proxy_storage_unique(const proxy_storage_unique& other) = delete;
@@ -253,8 +268,17 @@ namespace spore
 
         proxy_storage_value(proxy_storage_value&& other) noexcept
         {
-            std::swap(_dispatch, other._dispatch);
-            std::swap(_ptr, other._ptr);
+            _dispatch = other._dispatch;
+
+            if (_dispatch != nullptr)
+            {
+                _ptr = _dispatch->allocate();
+                _dispatch->move(ptr(), other.ptr());
+            }
+            else
+            {
+                _ptr = nullptr;
+            }
         }
 
         proxy_storage_value(const proxy_storage_value& other) SPORE_PROXY_THROW_SPEC
@@ -266,6 +290,10 @@ namespace spore
                 _ptr = _dispatch->allocate();
                 _dispatch->copy(ptr(), other.ptr());
             }
+            else
+            {
+                _ptr = nullptr;
+            }
         }
 
         ~proxy_storage_value() noexcept
@@ -275,8 +303,19 @@ namespace spore
 
         proxy_storage_value& operator=(proxy_storage_value&& other) noexcept
         {
-            std::swap(_dispatch, other._dispatch);
-            std::swap(_ptr, other._ptr);
+            reset();
+
+            _dispatch = other._dispatch;
+
+            if (_dispatch != nullptr)
+            {
+                _ptr = _dispatch->allocate();
+                _dispatch->move(ptr(), other.ptr());
+            }
+            else
+            {
+                _ptr = nullptr;
+            }
 
             return *this;
         }
@@ -291,6 +330,10 @@ namespace spore
             {
                 _ptr = _dispatch->allocate();
                 _dispatch->copy(ptr(), other.ptr());
+            }
+            else
+            {
+                _ptr = nullptr;
             }
 
             return *this;
@@ -395,7 +438,7 @@ namespace spore
 
         [[nodiscard]] constexpr void* ptr() const noexcept
         {
-            return std::addressof(_storage[0]);
+            return _dispatch != nullptr ? std::addressof(_storage[0]) : nullptr;
         }
 
         void reset() noexcept
@@ -438,10 +481,15 @@ namespace spore
             }
         }
 
-        [[nodiscard]] void* ptr() const
+        [[nodiscard]] void* ptr() const noexcept
         {
             constexpr auto visitor = [](const auto& storage) { return storage.ptr(); };
-            return std::visit(visitor, _storage.value());
+            return _storage.has_value() ? std::visit(visitor, _storage.value()) : nullptr;
+        }
+
+        void reset() noexcept
+        {
+            _storage = std::nullopt;
         }
 
       private:
@@ -458,16 +506,21 @@ namespace spore
         template <typename... args_t>
         constexpr explicit proxy_storage_inline(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
-            value.emplace(std::forward<args_t>(args)...);
+            _storage.emplace(std::forward<args_t>(args)...);
         }
 
         [[nodiscard]] constexpr void* ptr() const
         {
-            return std::addressof(value.value());
+            return _storage.has_value() ? std::addressof(_storage.value()) : nullptr;
+        }
+
+        void reset() noexcept
+        {
+            _storage = std::nullopt;
         }
 
       private:
-        mutable std::optional<value_t> value;
+        mutable std::optional<value_t> _storage;
     };
 
     struct proxy_storage_non_owning
@@ -498,6 +551,11 @@ namespace spore
         [[nodiscard]] constexpr void* ptr() const noexcept
         {
             return _ptr;
+        }
+
+        constexpr void reset() noexcept
+        {
+            _ptr = nullptr;
         }
 
       private:

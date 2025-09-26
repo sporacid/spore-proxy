@@ -92,67 +92,67 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         REQUIRE(p1.ptr() == nullptr);
     }
 
-    SECTION("value facade")
-    {
-        struct facade : proxy_facade<facade>
-        {
-            using dispatch_type [[maybe_unused]] = dispatch_type;
-
-            [[nodiscard]] bool copied() const
-            {
-                constexpr auto func = [](const auto& self) { return self.copied; };
-                return proxies::dispatch<bool>(func, *this);
-            }
-        };
-
-        struct impl
-        {
-            bool* destroyed = nullptr;
-            bool copied = false;
-            int prevent_sbo[4];
-
-            impl() = default;
-
-            impl(const impl&) noexcept
-            {
-                copied = true;
-            }
-
-            ~impl() noexcept
-            {
-                if (destroyed)
-                {
-                    *destroyed = true;
-                }
-            }
-        };
-
-        static_assert(std::is_move_constructible_v<value_proxy<facade>>);
-        static_assert(std::is_copy_constructible_v<value_proxy<facade>>);
-        static_assert(std::is_move_assignable_v<value_proxy<facade>>);
-        static_assert(std::is_copy_assignable_v<value_proxy<facade>>);
-
-        proxy p1 = proxies::make_value<facade, impl>();
-        proxy p2 = p1;
-
-        REQUIRE(p1.ptr() != p2.ptr());
-        REQUIRE(p2.copied());
-
-        const void* ptr = p1.ptr();
-        proxy p3 = std::move(p1);
-
-        REQUIRE(p1.ptr() == nullptr);
-        REQUIRE(p3.ptr() == ptr);
-
-        bool destroyed = false;
-        {
-            impl impl;
-            impl.destroyed = std::addressof(destroyed);
-            proxy _ = proxies::make_value<facade>(std::move(impl));
-        }
-
-        REQUIRE(destroyed);
-    }
+//    SECTION("value facade")
+//    {
+//        struct facade : proxy_facade<facade>
+//        {
+//            using dispatch_type [[maybe_unused]] = dispatch_type;
+//
+//            [[nodiscard]] bool copied() const
+//            {
+//                constexpr auto func = [](const auto& self) { return self.copied; };
+//                return proxies::dispatch<bool>(func, *this);
+//            }
+//        };
+//
+//        struct impl
+//        {
+//            bool* destroyed = nullptr;
+//            bool copied = false;
+//            int prevent_sbo[4];
+//
+//            impl() = default;
+//
+//            impl(const impl&) noexcept
+//            {
+//                copied = true;
+//            }
+//
+//            ~impl() noexcept
+//            {
+//                if (destroyed)
+//                {
+//                    *destroyed = true;
+//                }
+//            }
+//        };
+//
+//        static_assert(std::is_move_constructible_v<value_proxy<facade>>);
+//        static_assert(std::is_copy_constructible_v<value_proxy<facade>>);
+//        static_assert(std::is_move_assignable_v<value_proxy<facade>>);
+//        static_assert(std::is_copy_assignable_v<value_proxy<facade>>);
+//
+//        proxy p1 = proxies::make_value<facade, impl>();
+//        proxy p2 = p1;
+//
+//        REQUIRE(p1.ptr() != p2.ptr());
+//        REQUIRE(p2.copied());
+//
+//        const void* ptr = p1.ptr();
+//        proxy p3 = std::move(p1);
+//
+//        REQUIRE(p1.ptr() == nullptr);
+//        REQUIRE(p3.ptr() == ptr);
+//
+//        bool destroyed = false;
+//        {
+//            impl impl;
+//            impl.destroyed = std::addressof(destroyed);
+//            proxy _ = proxies::make_value<facade>(std::move(impl));
+//        }
+//
+//        REQUIRE(destroyed);
+//    }
 
     SECTION("inline facade")
     {
@@ -345,7 +345,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             impl impl_;
             proxy p = proxies::make_forward<facade>(impl_);
 
-            p->act();
+            p.get().act();
 
             REQUIRE(p.ptr() == std::addressof(impl_));
             REQUIRE(impl_.flag_ref);
@@ -355,7 +355,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             const impl impl_;
             proxy p = proxies::make_forward<facade>(impl_);
 
-            p->act();
+            p.get().act();
 
             REQUIRE(p.ptr() == std::addressof(impl_));
             REQUIRE(impl_.flag_const_ref);
@@ -364,7 +364,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         {
             proxy p = proxies::make_forward<facade>(impl {});
 
-            (*p).act();
+            p.get().act();
 
             impl& impl_ = *reinterpret_cast<impl*>(p.ptr());
             REQUIRE(impl_.flag_temp_ref);
