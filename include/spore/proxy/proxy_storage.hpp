@@ -12,13 +12,6 @@
 
 namespace spore
 {
-    template <typename storage_t>
-    concept any_proxy_storage = requires(storage_t& storage) {
-        std::is_default_constructible_v<storage_t>;
-        { storage.ptr() } -> std::same_as<void*>;
-        { storage.reset() } -> std::same_as<void>;
-    };
-
     struct proxy_storage_dispatch
     {
         void* (*allocate)();

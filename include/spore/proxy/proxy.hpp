@@ -1,6 +1,7 @@
 #pragma once
 
 #include "spore/proxy/proxy_base.hpp"
+#include "spore/proxy/proxy_concepts.hpp"
 #include "spore/proxy/proxy_conversions.hpp"
 #include "spore/proxy/proxy_dispatch.hpp"
 #include "spore/proxy/proxy_facade.hpp"
@@ -121,19 +122,11 @@ namespace spore
 
     namespace proxies::detail
     {
-        template <typename value_t>
-        struct is_proxy : std::false_type
-        {
-        };
-
         template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
         struct is_proxy<proxy<facade_t, storage_t, semantics_t>> : std::true_type
         {
         };
     }
-
-    template <typename value_t>
-    concept any_proxy = proxies::detail::is_proxy<value_t>::value;
 
     template <any_proxy_facade facade_t, typename value_t>
     using inline_proxy = proxy<facade_t, proxy_storage_inline<value_t>, proxy_value_semantics<facade_t>>;
