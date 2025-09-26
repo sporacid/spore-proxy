@@ -145,7 +145,7 @@ namespace spore
 
     template <typename forward_facade_t>
         requires any_proxy_facade<std::remove_reference_t<forward_facade_t>>
-    using non_owning_proxy = proxy<std::decay_t<forward_facade_t>, proxy_storage_non_owning, proxy_pointer_semantics<forward_facade_t>>;
+    using view_proxy = proxy<std::decay_t<forward_facade_t>, proxy_storage_non_owning, proxy_pointer_semantics<forward_facade_t>>;
 
     template <typename forward_facade_t>
         requires any_proxy_facade<std::decay_t<forward_facade_t>>
@@ -224,17 +224,17 @@ namespace spore
         }
 
         template <any_proxy_facade facade_t, typename value_t>
-        constexpr non_owning_proxy<facade_t> make_non_owning(value_t& value)
-            noexcept(std::is_nothrow_constructible_v<non_owning_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, value_t&>)
+        constexpr view_proxy<facade_t> make_view(value_t& value)
+            noexcept(std::is_nothrow_constructible_v<view_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, value_t&>)
         {
-            return non_owning_proxy<facade_t> {std::in_place_type<value_t>, value};
+            return view_proxy<facade_t> {std::in_place_type<value_t>, value};
         }
 
         template <any_proxy_facade facade_t, typename value_t>
-        constexpr non_owning_proxy<const facade_t> make_non_owning(const value_t& value)
-            noexcept(std::is_nothrow_constructible_v<non_owning_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
+        constexpr view_proxy<const facade_t> make_view(const value_t& value)
+            noexcept(std::is_nothrow_constructible_v<view_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
         {
-            return non_owning_proxy<const facade_t> {std::in_place_type<value_t>, value};
+            return view_proxy<const facade_t> {std::in_place_type<value_t>, value};
         }
 
         template <any_proxy_facade facade_t, typename value_t>

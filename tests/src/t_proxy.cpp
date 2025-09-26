@@ -47,8 +47,8 @@ namespace spore::proxies::tests::static_asserts
     static_assert(std::is_move_assignable_v<Proxy<Facade>>);    \
     static_assert(std::is_copy_assignable_v<Proxy<Facade>>);
 
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(non_owning_proxy, facade);
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(non_owning_proxy, const facade);
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(view_proxy, facade);
+    SPORE_PROXY_TESTS_STATIC_ASSERTS(view_proxy, const facade);
 
     SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade);
     SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade&);
