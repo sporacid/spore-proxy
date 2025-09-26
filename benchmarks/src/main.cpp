@@ -270,6 +270,10 @@ int main()
         });
     };
 
+    constexpr auto work_forward = [](const auto& facade, const auto work_size) {
+        return facade.get().work(work_size);
+    };
+
     constexpr auto work_pointer = [](const auto& facade, const auto work_size) {
         return facade->work(work_size);
     };
@@ -344,7 +348,7 @@ int main()
     {
         const benchmarks::spore::impl impl;
         forward_proxy facade = proxies::make_forward<benchmarks::spore::static_::facade>(impl);
-        benchmark.template operator()<work_pointer>("spore static (forward)", facade);
+        benchmark.template operator()<work_forward>("spore static (forward)", facade);
     }
 
     {
@@ -376,7 +380,7 @@ int main()
     {
         const benchmarks::spore::impl impl;
         forward_proxy facade = proxies::make_forward<benchmarks::spore::dynamic::facade>(impl);
-        benchmark.template operator()<work_pointer>("spore dynamic (forward)", facade);
+        benchmark.template operator()<work_forward>("spore dynamic (forward)", facade);
     }
 
     benchmarks::output_results(results);
