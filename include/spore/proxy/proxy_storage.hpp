@@ -5,6 +5,7 @@
 #include <concepts>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace spore
@@ -293,5 +294,34 @@ namespace spore
 
       private:
         mutable std::optional<value_t> value;
+    };
+
+    struct proxy_storage_non_owning
+    {
+        template <typename value_t>
+        constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, value_t& value) noexcept
+        {
+            _ptr = std::addressof(value);
+        }
+
+        template <typename value_t>
+        constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, value_t&& value) noexcept
+        {
+            _ptr = std::addressof(value);
+        }
+
+        template <typename value_t>
+        constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, const value_t& value) noexcept
+        {
+            _ptr = std::addressof(const_cast<value_t&>(value));
+        }
+
+        [[nodiscard]] constexpr void* ptr() const noexcept
+        {
+            return _ptr;
+        }
+
+      private:
+        void* _ptr;
     };
 }

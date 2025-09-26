@@ -134,7 +134,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         static_assert(std::is_copy_constructible_v<value_proxy<facade>>);
         static_assert(std::is_copy_assignable_v<value_proxy<facade>>);
 
-        proxy p1 =  proxies::make_value<facade, impl>();
+        proxy p1 = proxies::make_value<facade, impl>();
         proxy p2 = p1;
 
         REQUIRE(p1.ptr() != p2.ptr());
@@ -220,7 +220,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         REQUIRE(destroyed);
     }
 
-    SECTION("view facade")
+    SECTION("non-owning facade")
     {
         struct facade : proxy_facade<facade>
         {
@@ -235,7 +235,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         struct impl
         {
-            bool& flag;
+            bool flag = false;
 
             void act()
             {
@@ -243,21 +243,124 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             }
         };
 
-        static_assert(std::is_move_constructible_v<inline_proxy<facade, impl>>);
-        static_assert(not std::is_move_assignable_v<inline_proxy<facade, impl>>);
+        constexpr auto static_asserts = []<typename facade_t> {
+            static_assert(std::is_move_constructible_v<non_owning_proxy<facade_t>>);
+            static_assert(std::is_copy_constructible_v<non_owning_proxy<facade_t>>);
+            static_assert(std::is_move_assignable_v<non_owning_proxy<facade_t>>);
+            static_assert(std::is_copy_assignable_v<non_owning_proxy<facade_t>>);
+        };
 
-        static_assert(std::is_copy_constructible_v<inline_proxy<facade, impl>>);
-        static_assert(not std::is_copy_assignable_v<inline_proxy<facade, impl>>);
+        static_asserts.template operator()<facade>();
+        static_asserts.template operator()<const facade>();
 
-        bool flag = false;
-        proxy p1 = proxies::make_value<facade, impl>(flag);
-        proxy_view p2 = p1;
+        impl impl;
+        proxy p = proxies::make_non_owning<facade>(impl);
 
-        REQUIRE(p1.ptr() == p2.ptr());
+        REQUIRE(p.ptr() == std::addressof(impl));
 
-        p2->act();
+        p->act();
 
-        REQUIRE(flag);
+        REQUIRE(impl.flag);
+    }
+
+    SECTION("forward facade")
+    {
+        struct facade : proxy_facade<facade>
+        {
+            using dispatch_type = dispatch_type;
+
+            void act()
+            {
+                constexpr auto func = [](auto& self) { self.act(); };
+                proxies::dispatch(func, *this);
+            }
+
+            void act() const
+            {
+                constexpr auto func = [](auto& self) { self.act(); };
+                proxies::dispatch(func, *this);
+            }
+        };
+
+        struct impl
+        {
+            bool flag_ref = false;
+            bool flag_temp_ref = false;
+            mutable bool flag_const_ref = false;
+            mutable bool flag_const_temp_ref = false;
+
+            void act() &
+            {
+                flag_ref = true;
+            }
+
+            void act() &&
+            {
+                flag_temp_ref = true;
+            }
+
+            void act() const&
+            {
+                flag_const_ref = true;
+            }
+
+            void act() const&&
+            {
+                flag_const_temp_ref = true;
+            }
+        };
+
+        constexpr auto static_asserts = []<typename facade_t> {
+            static_assert(std::is_move_constructible_v<forward_proxy<facade_t>>);
+            static_assert(std::is_copy_constructible_v<forward_proxy<facade_t>>);
+            static_assert(std::is_move_assignable_v<forward_proxy<facade_t>>);
+            static_assert(std::is_copy_assignable_v<forward_proxy<facade_t>>);
+        };
+
+        static_asserts.template operator()<facade>();
+        static_asserts.template operator()<facade&>();
+        static_asserts.template operator()<facade&&>();
+        static_asserts.template operator()<const facade>();
+        static_asserts.template operator()<const facade&>();
+        static_asserts.template operator()<const facade&&>();
+
+        {
+            impl impl_;
+            proxy p = proxies::make_forward<facade>(impl_);
+
+            p->act();
+
+            REQUIRE(p.ptr() == std::addressof(impl_));
+            REQUIRE(impl_.flag_ref);
+        }
+
+        {
+            const impl impl_;
+            proxy p = proxies::make_forward<facade>(impl_);
+
+            p->act();
+
+            REQUIRE(p.ptr() == std::addressof(impl_));
+            REQUIRE(impl_.flag_const_ref);
+        }
+
+        {
+            proxy p = proxies::make_forward<facade>(impl {});
+
+            p->act();
+
+            impl& impl_ = *reinterpret_cast<impl*>(p.ptr());
+            REQUIRE(impl_.flag_temp_ref);
+        }
+
+        {
+            proxy p = proxies::make_forward<facade>([]() -> const impl { return impl {}; }());
+
+            p->act();
+
+            impl& impl_ = *reinterpret_cast<impl*>(p.ptr());
+            REQUIRE(impl_.flag_const_temp_ref);
+        }
     }
 
     SECTION("dispatch or throw")

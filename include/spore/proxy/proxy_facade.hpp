@@ -51,9 +51,6 @@ namespace spore
         template <any_proxy_facade, any_proxy_storage, any_proxy_semantics>
         friend struct proxy;
 
-        template <any_proxy_facade, any_proxy_semantics>
-        friend struct proxy_view;
-
         friend facade_t;
 
         constexpr proxy_facade() noexcept
