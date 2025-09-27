@@ -1,0 +1,29 @@
+#http://clang.llvm.org/docs/ClangFormatStyleOptions.html
+
+BasedOnStyle: Microsoft
+Standard: c++20
+TabWidth: 4
+ContinuationIndentWidth: 4
+
+BraceWrapping:
+  AfterUnion: true
+
+AlignAfterOpenBracket: DontAlign
+AlignEscapedNewlines: Left
+AllowBreakBeforeNoexceptSpecifier: OnlyWithParen
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCompoundRequirementOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Empty
+ColumnLimit: 0
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+FixNamespaceComments: False
+IndentCaseLabels: true
+IndentPPDirectives: AfterHash
+IndentRequiresClause: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+NamespaceIndentation: All
+PointerAlignment: Left
+RequiresClausePosition: OwnLine
+SpaceAfterCStyleCast: true
+SpaceBeforeCpp11BracedList: true
