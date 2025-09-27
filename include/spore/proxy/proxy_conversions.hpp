@@ -48,58 +48,54 @@ namespace spore
             using other_const_reference_t = proxy_reference_semantics<const other_facade_t&>;
             using other_const_temp_reference_t = proxy_reference_semantics<const other_facade_t&&>;
 
-            template <any_proxy_semantics, any_proxy_semantics>
-            static constexpr disable_copy_and_move traits;
-
             // clang-format off
+
+            template <any_proxy_semantics semantics_t, any_proxy_semantics other_semantics_t>
+            static consteval auto traits_impl(std::in_place_type_t<semantics_t>, std::in_place_type_t<other_semantics_t>)                   -> disable_copy_and_move { return {}; };
 
             // value semantics conversions
 
-            template <> constexpr enable_copy_and_move traits<value_t, other_value_t>;
-
-            template <> constexpr enable_copy traits<value_t, other_pointer_t>;
-            template <> constexpr enable_copy traits<value_t, other_const_pointer_t>;
-
-            template <> constexpr enable_copy traits<value_t, other_reference_t>;
-            template <> constexpr enable_copy traits<value_t, other_const_reference_t>;
-            template <> constexpr enable_copy_and_move traits<value_t, other_temp_reference_t>;
-            template <> constexpr enable_copy_and_move traits<value_t, other_const_temp_reference_t>;
+            static consteval auto traits_impl(std::in_place_type_t<value_t>, std::in_place_type_t<other_value_t>)                           -> enable_copy_and_move { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<value_t>, std::in_place_type_t<other_pointer_t>)                         -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<value_t>, std::in_place_type_t<other_const_pointer_t>)                   -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<value_t>, std::in_place_type_t<other_reference_t>)                       -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<value_t>, std::in_place_type_t<other_const_reference_t>)                 -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<value_t>, std::in_place_type_t<other_temp_reference_t>)                  -> enable_copy_and_move { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<value_t>, std::in_place_type_t<other_const_temp_reference_t>)            -> enable_copy_and_move { return {}; }
 
             // pointer semantics conversions
 
-            template <> constexpr enable_copy traits<pointer_t, other_pointer_t>;
-            template <> constexpr enable_copy traits<const_pointer_t, other_const_pointer_t>;
-            template <> constexpr enable_copy traits<const_pointer_t, other_pointer_t>;
-
-            template <> constexpr enable_copy_and_move traits<pointer_t, other_value_t>;
-            template <> constexpr enable_copy_and_move traits<const_pointer_t, other_value_t>;
-
-            template <> constexpr enable_copy traits<pointer_t, other_reference_t>;
-            template <> constexpr enable_copy traits<pointer_t, other_const_reference_t>;
-            template <> constexpr enable_copy_and_move traits<pointer_t, other_temp_reference_t>;
-            template <> constexpr enable_copy_and_move traits<pointer_t, other_const_temp_reference_t>;
+            static consteval auto traits_impl(std::in_place_type_t<pointer_t>, std::in_place_type_t<other_pointer_t>)                       -> enable_copy { return {}; };
+            static consteval auto traits_impl(std::in_place_type_t<const_pointer_t>, std::in_place_type_t<other_const_pointer_t>)           -> enable_copy { return {}; };
+            static consteval auto traits_impl(std::in_place_type_t<const_pointer_t>, std::in_place_type_t<other_pointer_t>)                 -> enable_copy { return {}; };
+            static consteval auto traits_impl(std::in_place_type_t<pointer_t>, std::in_place_type_t<other_value_t>)                         -> enable_copy_and_move { return {}; };
+            static consteval auto traits_impl(std::in_place_type_t<const_pointer_t>, std::in_place_type_t<other_value_t>)                   -> enable_copy_and_move { return {}; };
+            static consteval auto traits_impl(std::in_place_type_t<pointer_t>, std::in_place_type_t<other_reference_t>)                     -> enable_copy { return {}; };
+            static consteval auto traits_impl(std::in_place_type_t<pointer_t>, std::in_place_type_t<other_const_reference_t>)               -> enable_copy { return {}; };
+            static consteval auto traits_impl(std::in_place_type_t<pointer_t>, std::in_place_type_t<other_temp_reference_t>)                -> enable_copy_and_move { return {}; };
+            static consteval auto traits_impl(std::in_place_type_t<pointer_t>, std::in_place_type_t<other_const_temp_reference_t>)          -> enable_copy_and_move { return {}; };
 
             // reference semantics conversions
 
-            template <> constexpr enable_copy traits<reference_t, other_reference_t>;
-            template <> constexpr enable_copy traits<reference_t, other_const_reference_t>;
-            template <> constexpr enable_copy_and_move traits<reference_t, other_temp_reference_t>;
-            template <> constexpr enable_copy_and_move traits<reference_t, other_const_temp_reference_t>;
+            static consteval auto traits_impl(std::in_place_type_t<reference_t>, std::in_place_type_t<other_reference_t>)                   -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<reference_t>, std::in_place_type_t<other_const_reference_t>)             -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<reference_t>, std::in_place_type_t<other_temp_reference_t>)              -> enable_copy_and_move { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<reference_t>, std::in_place_type_t<other_const_temp_reference_t>)        -> enable_copy_and_move { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<temp_reference_t>, std::in_place_type_t<other_reference_t>)              -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<temp_reference_t>, std::in_place_type_t<other_const_reference_t>)        -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<temp_reference_t>, std::in_place_type_t<other_temp_reference_t>)         -> enable_copy_and_move { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<temp_reference_t>, std::in_place_type_t<other_const_temp_reference_t>)   -> enable_copy_and_move { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<reference_t>, std::in_place_type_t<other_value_t>)                       -> enable_copy_and_move { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<reference_t>, std::in_place_type_t<other_pointer_t>)                     -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<reference_t>, std::in_place_type_t<other_const_pointer_t>)               -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<temp_reference_t>, std::in_place_type_t<other_value_t>)                  -> enable_copy_and_move { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<temp_reference_t>, std::in_place_type_t<other_pointer_t>)                -> enable_copy { return {}; }
+            static consteval auto traits_impl(std::in_place_type_t<temp_reference_t>, std::in_place_type_t<other_const_pointer_t>)          -> enable_copy { return {}; }
 
-            template <> constexpr enable_copy traits<temp_reference_t, other_reference_t>;
-            template <> constexpr enable_copy traits<temp_reference_t, other_const_reference_t>;
-            template <> constexpr enable_copy_and_move traits<temp_reference_t, other_temp_reference_t>;
-            template <> constexpr enable_copy_and_move traits<temp_reference_t, other_const_temp_reference_t>;
-
-            template <> constexpr enable_copy_and_move traits<reference_t, other_value_t>;
-            template <> constexpr enable_copy traits<reference_t, other_pointer_t>;
-            template <> constexpr enable_copy traits<reference_t, other_const_pointer_t>;
-
-            template <> constexpr enable_copy_and_move traits<temp_reference_t, other_value_t>;
-            template <> constexpr enable_copy traits<temp_reference_t, other_pointer_t>;
-            template <> constexpr enable_copy traits<temp_reference_t, other_const_pointer_t>;
-
-            //clang-format on
+            template <any_proxy_semantics semantics_t, any_proxy_semantics other_semantics_t>
+            using traits = decltype(semantics_conversion_matrix::traits_impl(std::in_place_type<semantics_t>, std::in_place_type<other_semantics_t>));
+#undef CONVERSION
+            // clang-format on
         };
     }
 
@@ -110,10 +106,11 @@ namespace spore
     struct proxy_semantics_conversion
     {
         using conversion_matrix_t = proxies::detail::semantics_conversion_matrix<typename semantics_t::facade_type, typename other_semantics_t::facade_type>;
-        static constexpr bool can_copy = conversion_matrix_t::template traits<semantics_t, other_semantics_t>.can_copy;
-        static constexpr bool can_move = conversion_matrix_t::template traits<semantics_t, other_semantics_t>.can_move;
+        static constexpr bool can_copy = conversion_matrix_t::template traits<semantics_t, other_semantics_t>::can_copy;
+        static constexpr bool can_move = conversion_matrix_t::template traits<semantics_t, other_semantics_t>::can_move;
     };
 
+    // clang-format off
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_facade_conversion
         : std::conditional_t<
@@ -121,6 +118,7 @@ namespace spore
             std::true_type,
             std::false_type
           > {};
+    // clang-format on
 
     template <any_proxy_storage storage_t, any_proxy_storage other_storage_t>
     struct proxy_storage_conversion
@@ -132,12 +130,14 @@ namespace spore
     // proxy conversions
 
     template <any_proxy proxy_t, any_proxy other_proxy_t>
-    struct proxy_conversion : proxies::detail::disable_copy_and_move {};
+    struct proxy_conversion : proxies::detail::disable_copy_and_move
+    {
+    };
 
     template <
-        any_proxy_facade facade_t,          any_proxy_storage storage_t,        any_proxy_semantics semantics_t,
-        any_proxy_facade other_facade_t,    any_proxy_storage other_storage_t,  any_proxy_semantics other_semantics_t>
-        requires proxy_facade_conversion<facade_t, other_facade_t>::value
+        any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t,
+        any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
+        requires(proxy_facade_conversion<facade_t, other_facade_t>::value)
     struct proxy_conversion<proxy<facade_t, storage_t, semantics_t>, proxy<other_facade_t, other_storage_t, other_semantics_t>>
     {
         static constexpr bool can_copy =

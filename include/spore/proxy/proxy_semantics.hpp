@@ -15,7 +15,7 @@ namespace spore
     };
 
     template <typename facade_t>
-        requires any_proxy_facade<std::remove_const_t<std::remove_volatile_t<facade_t>>>
+        requires(any_proxy_facade<std::remove_const_t<std::remove_volatile_t<facade_t>>>)
     struct SPORE_PROXY_ENFORCE_EBCO proxy_pointer_semantics : private std::remove_const_t<std::remove_volatile_t<facade_t>>
     {
         // facade_t should be a cv-qualified type, non ref-qualified type
@@ -44,7 +44,7 @@ namespace spore
     };
 
     template <typename facade_t>
-        requires any_proxy_facade<std::decay_t<facade_t>> and std::is_reference_v<facade_t>
+        requires(any_proxy_facade<std::decay_t<facade_t>> and std::is_reference_v<facade_t>)
     struct SPORE_PROXY_ENFORCE_EBCO proxy_reference_semantics : private std::decay_t<facade_t>
     {
         // facade_t should be a cv-qualified type, ref-qualified type

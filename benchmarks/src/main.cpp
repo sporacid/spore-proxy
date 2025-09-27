@@ -320,66 +320,66 @@ int main()
 #endif
 
     {
-        inline_proxy facade = proxies::make_inline<benchmarks::spore::static_::facade>(benchmarks::spore::static_::impl {});
+        auto facade = proxies::make_inline<benchmarks::spore::static_::facade>(benchmarks::spore::static_::impl {});
         benchmark.template operator()<work_value>("spore static (inline)", facade);
     }
 
     {
-        value_proxy facade = proxies::make_value<benchmarks::spore::static_::facade>(benchmarks::spore::static_::impl {});
+        auto facade = proxies::make_value<benchmarks::spore::static_::facade>(benchmarks::spore::static_::impl {});
         benchmark.template operator()<work_value>("spore static (value)", facade);
     }
 
     {
-        unique_proxy facade = proxies::make_unique<benchmarks::spore::static_::facade>(benchmarks::spore::static_::impl {});
+        auto facade = proxies::make_unique<benchmarks::spore::static_::facade>(benchmarks::spore::static_::impl {});
         benchmark.template operator()<work_pointer>("spore static (unique)", facade);
     }
 
     {
-        shared_proxy facade = proxies::make_shared<benchmarks::spore::static_::facade>(benchmarks::spore::static_::impl {});
+        auto facade = proxies::make_shared<benchmarks::spore::static_::facade>(benchmarks::spore::static_::impl {});
         benchmark.template operator()<work_pointer>("spore static (shared)", facade);
     }
 
     {
         const benchmarks::spore::impl impl;
-        view_proxy facade = proxies::make_view<benchmarks::spore::static_::facade>(impl);
+        auto facade = proxies::make_view<benchmarks::spore::static_::facade>(impl);
         benchmark.template operator()<work_pointer>("spore static (view)", facade);
     }
 
     {
         const benchmarks::spore::impl impl;
-        forward_proxy facade = proxies::make_forward<benchmarks::spore::static_::facade>(impl);
+        auto facade = proxies::make_forward<benchmarks::spore::static_::facade>(impl);
         benchmark.template operator()<work_forward>("spore static (forward)", facade);
     }
 
     {
-        inline_proxy facade = proxies::make_inline<benchmarks::spore::dynamic::facade>(benchmarks::spore::dynamic::impl {});
+        auto facade = proxies::make_inline<benchmarks::spore::dynamic::facade>(benchmarks::spore::dynamic::impl {});
         benchmark.template operator()<work_value>("spore dynamic (inline)", facade);
     }
 
     {
-        value_proxy facade = proxies::make_value<benchmarks::spore::dynamic::facade>(benchmarks::spore::dynamic::impl {});
+        auto facade = proxies::make_value<benchmarks::spore::dynamic::facade>(benchmarks::spore::dynamic::impl {});
         benchmark.template operator()<work_value>("spore dynamic (value)", facade);
     }
 
     {
-        unique_proxy facade = proxies::make_unique<benchmarks::spore::dynamic::facade>(benchmarks::spore::dynamic::impl {});
+        auto facade = proxies::make_unique<benchmarks::spore::dynamic::facade>(benchmarks::spore::dynamic::impl {});
         benchmark.template operator()<work_pointer>("spore dynamic (unique)", facade);
     }
 
     {
-        shared_proxy facade = proxies::make_shared<benchmarks::spore::dynamic::facade>(benchmarks::spore::dynamic::impl {});
+        auto facade = proxies::make_shared<benchmarks::spore::dynamic::facade>(benchmarks::spore::dynamic::impl {});
         benchmark.template operator()<work_pointer>("spore dynamic (shared)", facade);
     }
 
     {
         const benchmarks::spore::impl impl;
-        view_proxy facade = proxies::make_view<benchmarks::spore::dynamic::facade>(impl);
+        auto facade = proxies::make_view<benchmarks::spore::dynamic::facade>(impl);
         benchmark.template operator()<work_pointer>("spore dynamic (view)", facade);
     }
 
     {
         const benchmarks::spore::impl impl;
-        forward_proxy facade = proxies::make_forward<benchmarks::spore::dynamic::facade>(impl);
+        auto facade = proxies::make_forward<benchmarks::spore::dynamic::facade>(impl);
         benchmark.template operator()<work_forward>("spore dynamic (forward)", facade);
     }
 

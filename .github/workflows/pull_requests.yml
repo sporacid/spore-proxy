@@ -9,6 +9,7 @@ on:
 jobs:
   check:
     name: Check Pull Request
+    permissions: read-all
     runs-on: ubuntu-latest
     steps:
       - name: Check Commit Message

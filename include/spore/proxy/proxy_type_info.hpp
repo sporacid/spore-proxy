@@ -3,6 +3,8 @@
 #include "spore/proxy/proxy_macros.hpp"
 
 #include <cstddef>
+#include <cstring>
+#include <memory>
 
 namespace spore
 {

@@ -12,7 +12,11 @@ namespace spore::proxies::detail
 
     namespace type_sets
     {
-        template <typename tag_t, std::size_t>
+#ifdef __GNUC__
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wnon-template-friend"
+#endif
+        template <typename tag_t, std::size_t index_v>
         struct nth
         {
             consteval auto friend get(nth);
@@ -26,6 +30,9 @@ namespace spore::proxies::detail
                 return value_t {};
             }
         };
+#ifdef __GNUC__
+#    pragma GCC diagnostic pop
+#endif
 
         template <std::size_t index_v, typename type_set_t>
         struct element_at;
