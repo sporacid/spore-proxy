@@ -65,12 +65,12 @@ namespace spore
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
         proxy_pointer_semantics<facade_t>,
-        proxy_value_semantics<other_facade_t>> : proxies::detail::enable_copy {};
+        proxy_value_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
         proxy_pointer_semantics<const facade_t>,
-        proxy_value_semantics<other_facade_t>> : proxies::detail::enable_copy {};
+        proxy_value_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
 
     // facade conversions
 

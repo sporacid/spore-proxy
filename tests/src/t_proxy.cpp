@@ -115,6 +115,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             // value semantics conversion
 
             static_assert_conversion<value_proxy<facade>, value_proxy<facade>, should_copy, should_move>();
+            static_assert_conversion<value_proxy<facade>, value_proxy<base>, should_not_copy, should_not_move>();
             static_assert_conversion<value_proxy<base>, value_proxy<facade>, should_copy, should_move>();
 
             // pointer semantics conversion
@@ -124,15 +125,15 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             static_assert_conversion<view_proxy<const facade>, view_proxy<facade>, should_copy, should_not_move>();
             static_assert_conversion<view_proxy<const facade>, view_proxy<const facade>, should_copy, should_not_move>();
 
-            static_assert_conversion<view_proxy<facade>, value_proxy<facade>, should_copy, should_not_move>();
-            static_assert_conversion<view_proxy<const facade>, value_proxy<facade>, should_copy, should_not_move>();
+            static_assert_conversion<view_proxy<base>, view_proxy<facade>, should_copy, should_not_move>();
+            static_assert_conversion<view_proxy<base>, view_proxy<const facade>, should_not_copy, should_not_move>();
+            static_assert_conversion<view_proxy<const base>, view_proxy<facade>, should_copy, should_not_move>();
+            static_assert_conversion<view_proxy<const base>, view_proxy<const facade>, should_copy, should_not_move>();
 
-            //            static_assert(proxy_conversion<view_proxy<facade>, value_proxy<facade>>::can_copy);
-            //            static_assert(proxy_conversion<view_proxy<facade>, value_proxy<base>>::can_copy);
-            //
-            //            static_assert(not proxy_conversion<view_proxy<const facade>, value_proxy<facade>>::can_copy);
-            //            static_assert(not proxy_conversion<view_proxy<const facade>, value_proxy<base>>::can_copy);
-            //            static_assert(not proxy_conversion<view_proxy<const facade>, view_proxy<const facade>>::can_copy);
+            static_assert_conversion<view_proxy<facade>, value_proxy<facade>, should_copy, should_move>();
+            static_assert_conversion<view_proxy<base>, value_proxy<facade>, should_copy, should_move>();
+            static_assert_conversion<view_proxy<const facade>, value_proxy<facade>, should_copy, should_move>();
+            static_assert_conversion<view_proxy<const base>, value_proxy<facade>, should_copy, should_move>();
         }
 
         SECTION("value facade to view facade")
