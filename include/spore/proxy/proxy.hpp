@@ -30,7 +30,7 @@ namespace spore
         template <any_proxy_facade super_facade_t>
         constexpr proxy(const proxy<super_facade_t, storage_t, semantics_t>& other)
             noexcept(std::is_nothrow_copy_constructible_v<storage_t>)
-            requires std::is_copy_constructible_v<storage_t>
+            requires(std::is_copy_constructible_v<storage_t>)
             : proxy_base(other.type_index()), _storage(other._storage)
         {
             proxies::detail::add_facade<facade_t>();
@@ -41,7 +41,7 @@ namespace spore
         template <any_proxy_facade super_facade_t>
         constexpr proxy(proxy<super_facade_t, storage_t, semantics_t>&& other)
             noexcept(std::is_nothrow_copy_constructible_v<storage_t>)
-            requires std::is_copy_constructible_v<storage_t>
+            requires(std::is_copy_constructible_v<storage_t>)
             : proxy_base(other.type_index()), _storage(std::move(other._storage))
         {
             proxies::detail::add_facade<facade_t>();
@@ -52,7 +52,7 @@ namespace spore
         template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
         constexpr proxy(const proxy<other_facade_t, other_storage_t, other_semantics_t>& other)
             noexcept(std::is_nothrow_constructible_v<storage_t, const other_storage_t&>)
-            requires proxy_conversion<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>::can_copy
+            requires(proxy_conversion<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>::can_copy)
             : proxy_base(other.type_index()), _storage(other._storage)
         {
             proxies::detail::add_facade<facade_t>();
@@ -64,7 +64,7 @@ namespace spore
         template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
         constexpr proxy(proxy<other_facade_t, other_storage_t, other_semantics_t>&& other)
             noexcept(std::is_nothrow_constructible_v<storage_t, other_storage_t&&>)
-            requires proxy_conversion<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>::can_move
+            requires(proxy_conversion<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>::can_move)
             : proxy_base(other.type_index()), _storage(std::move(other._storage))
         {
             proxies::detail::add_facade<facade_t>();
@@ -72,39 +72,10 @@ namespace spore
 
             _ptr = _storage.ptr();
         }
-
-#if 0
-        template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
-        constexpr proxy(const proxy<other_facade_t, other_storage_t, other_semantics_t>& other)
-            noexcept(is_nothrow_proxy_copy_convertible_v<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>)
-            requires proxy_convertible_to<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>
-            : proxy_base(other.type_index()), _storage(other._storage)
-        {
-            proxies::detail::add_facade<facade_t>();
-            proxies::detail::add_facade<other_facade_t>();
-
-            _ptr = _storage.ptr();
-        }
-
-        template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
-        constexpr proxy(proxy<other_facade_t, other_storage_t, other_semantics_t>&& other)
-            noexcept(is_nothrow_proxy_move_convertible_v<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>)
-            requires proxy_convertible_to<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>
-            : proxy_base(other.type_index()), _storage(std::move(other._storage))
-        {
-            proxies::detail::add_facade<facade_t>();
-            proxies::detail::add_facade<other_facade_t>();
-
-            _ptr = _storage.ptr();
-
-            other._ptr = nullptr;
-            other._type_index = std::numeric_limits<std::uint32_t>::max();
-        }
-#endif
 
         constexpr proxy(const proxy& other)
             noexcept(std::is_nothrow_copy_constructible_v<storage_t>)
-            requires std::is_copy_constructible_v<storage_t>
+            requires(std::is_copy_constructible_v<storage_t>)
             : proxy_base(other.type_index()), _storage(other._storage)
         {
             _ptr = _storage.ptr();
@@ -112,7 +83,7 @@ namespace spore
 
         constexpr proxy& operator=(const proxy& other)
             noexcept(std::is_nothrow_copy_assignable_v<storage_t>)
-            requires std::is_copy_assignable_v<storage_t>
+            requires(std::is_copy_assignable_v<storage_t>)
         {
             _storage = other._storage;
             _type_index = other._type_index;
@@ -123,7 +94,7 @@ namespace spore
 
         constexpr proxy(proxy&& other)
             noexcept(std::is_nothrow_move_constructible_v<storage_t>)
-            requires std::is_move_constructible_v<storage_t>
+            requires(std::is_move_constructible_v<storage_t>)
             : proxy_base(other.type_index()), _storage(std::move(other._storage))
         {
             _ptr = _storage.ptr();
@@ -134,7 +105,7 @@ namespace spore
 
         constexpr proxy& operator=(proxy&& other)
             noexcept(std::is_nothrow_move_assignable_v<storage_t>)
-            requires std::is_move_assignable_v<storage_t>
+            requires(std::is_move_assignable_v<storage_t>)
         {
             std::swap(_storage, other._storage);
             std::swap(_type_index, other._type_index);
@@ -174,11 +145,11 @@ namespace spore
     using shared_proxy_mt = proxy<facade_t, proxy_storage_shared<std::atomic<std::uint32_t>>, proxy_pointer_semantics<facade_t>>;
 
     template <typename forward_facade_t>
-        requires any_proxy_facade<std::remove_const_t<std::remove_volatile_t<forward_facade_t>>>
+        requires(any_proxy_facade<std::remove_const_t<std::remove_volatile_t<forward_facade_t>>>)
     using view_proxy = proxy<std::remove_const_t<std::remove_volatile_t<forward_facade_t>>, proxy_storage_non_owning, proxy_pointer_semantics<forward_facade_t>>;
 
     template <typename forward_facade_t>
-        requires any_proxy_facade<std::decay_t<forward_facade_t>> and std::is_reference_v<forward_facade_t>
+        requires(any_proxy_facade<std::decay_t<forward_facade_t>> and std::is_reference_v<forward_facade_t>)
     using forward_proxy = proxy<std::decay_t<forward_facade_t>, proxy_storage_non_owning, proxy_reference_semantics<forward_facade_t>>;
 
     namespace proxies

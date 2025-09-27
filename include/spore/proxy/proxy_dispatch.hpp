@@ -5,6 +5,8 @@
 #include "spore/proxy/proxy_macros.hpp"
 #include "spore/proxy/proxy_type_set.hpp"
 
+#include <atomic>
+#include <cmath>
 #include <cstddef>
 #include <type_traits>
 #include <vector>
@@ -54,7 +56,7 @@ namespace spore
             static inline std::atomic<std::uint32_t> seed;
 
             template <typename value_t>
-            static inline std::uint32_t value = seed++;
+            static inline std::uint32_t value = index_impl::seed++;
         };
 
         template <typename facade_t>

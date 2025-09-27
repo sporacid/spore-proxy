@@ -68,13 +68,11 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 {
     using namespace spore;
 
-    using dispatch_type = TestType;
-
     SECTION("proxy basics")
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type [[maybe_unused]] = dispatch_type;
+            using dispatch_type [[maybe_unused]] = TestType;
 
             void act()
             {
@@ -185,7 +183,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         SECTION("value facade to view facade")
         {
-            value_proxy p1 = proxies::make_value<facade, impl>();
+            value_proxy<facade> p1 = proxies::make_value<facade, impl>();
             view_proxy<facade> p2 = p1;
 
             REQUIRE(p1.ptr() == p2.ptr());
@@ -193,7 +191,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         SECTION("value facade to view base")
         {
-            value_proxy p1 = proxies::make_value<facade, impl>();
+            value_proxy<facade> p1 = proxies::make_value<facade, impl>();
             view_proxy<base> p2 = p1;
 
             REQUIRE(p1.ptr() == p2.ptr());
@@ -201,7 +199,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         SECTION("value facade to value base")
         {
-            value_proxy p1 = proxies::make_value<facade, impl>();
+            value_proxy<facade> p1 = proxies::make_value<facade, impl>();
             value_proxy<base> p2 = p1;
 
             REQUIRE(p2.ptr() != nullptr);
@@ -211,7 +209,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         SECTION("view facade to value facade")
         {
             impl i;
-            view_proxy p1 = proxies::make_view<facade>(i);
+            view_proxy<facade> p1 = proxies::make_view<facade>(i);
             value_proxy<facade> p2 = p1;
 
             REQUIRE(p2.ptr() != nullptr);
@@ -221,7 +219,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         SECTION("forward facade to value facade")
         {
             impl i;
-            forward_proxy p1 = proxies::make_forward<facade>(std::move(i));
+            forward_proxy<facade&&> p1 = proxies::make_forward<facade>(std::move(i));
             value_proxy<facade> p2 = p1;
 
             REQUIRE(p2.ptr() != nullptr);
@@ -233,7 +231,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type [[maybe_unused]] = dispatch_type;
+            using dispatch_type [[maybe_unused]] = TestType;
 
             void act() const
             {
@@ -255,7 +253,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         struct facade : proxy_facade<facade>
         {
-            using dispatch_type [[maybe_unused]] = dispatch_type;
+            using dispatch_type [[maybe_unused]] = TestType;
 
             int act() const
             {
@@ -360,7 +358,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         struct facade : proxy_facade<facade, facade_base1, facade_base2>
         {
-            using dispatch_type [[maybe_unused]] = dispatch_type;
+            using dispatch_type [[maybe_unused]] = TestType;
         };
 
         struct impl
@@ -401,7 +399,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
     {
         constexpr std::size_t result_count = 32;
 
-        proxy p = proxies::make_value<proxies::tests::templates::facade<dispatch_type>, proxies::tests::templates::impl>();
+        proxy p = proxies::make_value<proxies::tests::templates::facade<TestType>, proxies::tests::templates::impl>();
 
         const auto test_result = [&]<std::size_t index_v> {
             REQUIRE(index_v == p.template act<index_v>());
@@ -441,7 +439,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
     SECTION("facade across translation unit")
     {
-        proxy p = proxies::tests::tu::make_proxy<dispatch_type>();
+        proxy p = proxies::tests::tu::make_proxy<TestType>();
 
         REQUIRE(0 == proxies::tests::tu::some_work(p));
         REQUIRE(1 == proxies::tests::tu::some_other_work(p));
@@ -456,7 +454,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         std::atomic<std::size_t> counter;
         std::atomic<std::size_t> results[thread_count][result_count] {};
 
-        proxy p = proxies::make_value<proxies::tests::threads::facade<dispatch_type>, proxies::tests::threads::impl>();
+        proxy p = proxies::make_value<proxies::tests::threads::facade<TestType>, proxies::tests::threads::impl>();
 
         const auto make_thread = [&]<std::size_t... indices_v>(std::index_sequence<indices_v...>) {
             return std::thread {

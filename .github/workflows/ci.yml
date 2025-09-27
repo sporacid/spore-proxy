@@ -44,6 +44,11 @@ jobs:
           buildPreset: 'ninja-vcpkg-release'
           testPreset: 'ninja-vcpkg-test-release'
           testPresetAdditionalArgs: "['--no-tests=error','--output-on-failure','--verbose']"
+  tag:
+    name: Tag Version
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
       - name: Tag Version
         if: github.ref == 'refs/heads/main'
         run: |
