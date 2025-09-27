@@ -159,7 +159,7 @@ TEST_CASE("spore::proxy::storage", "[spore::proxy][spore::proxy::storage]")
         {
             bool destroyed = false;
 
-            proxy_storage_shared<std::uint32_t> s {std::in_place_type<impl>, flags {.destroyed = destroyed}};
+            proxy_storage_unique s {std::in_place_type<impl>, flags {.destroyed = destroyed}};
 
             s.reset();
 

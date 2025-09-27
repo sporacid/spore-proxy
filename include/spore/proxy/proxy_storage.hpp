@@ -17,11 +17,10 @@ namespace spore
     template <typename counter_t>
     struct proxy_storage_shared
     {
-        // TODO @sporacid fix shared storage being different from others with block type_info.
-
         proxy_storage_shared()
             : _type_info(nullptr),
-              _block(nullptr)
+              _block(nullptr),
+              _ptr(nullptr)
         {
         }
 
@@ -32,12 +31,14 @@ namespace spore
 
             _type_info = std::addressof(proxies::detail::type_info<value_t>());
             _block = block;
+            _ptr = std::addressof(block->value);
         }
 
         proxy_storage_shared(const proxy_storage_shared& other) noexcept
         {
             _type_info = other._type_info;
             _block = other._block;
+            _ptr = other._ptr;
 
             if (_type_info != nullptr)
             {
@@ -58,15 +59,18 @@ namespace spore
         {
             _type_info = other._type_info;
             _block = other._block;
+            _ptr = other._ptr;
 
             other._type_info = nullptr;
             other._block = nullptr;
+            other._ptr = nullptr;
         }
 
         proxy_storage_shared& operator=(proxy_storage_shared&& other) noexcept
         {
             std::swap(_type_info, other._type_info);
             std::swap(_block, other._block);
+            std::swap(_ptr, other._ptr);
 
             return *this;
         }
@@ -78,7 +82,7 @@ namespace spore
 
         [[nodiscard]] void* ptr() const noexcept
         {
-            return _block != nullptr ? _block->ptr() : nullptr;
+            return _ptr;
         }
 
         [[nodiscard]] const proxy_type_info* type_info() const noexcept
@@ -99,6 +103,7 @@ namespace spore
 
                 _type_info = nullptr;
                 _block = nullptr;
+                _ptr = nullptr;
             }
         }
 
@@ -112,8 +117,6 @@ namespace spore
         struct shared_block_base
         {
             counter_t counter;
-            shared_block_base() : counter(1) {}
-            virtual void* ptr() noexcept = 0;
             virtual ~shared_block_base() = default;
         };
 
@@ -126,16 +129,13 @@ namespace spore
             explicit shared_block(args_t&&... args)
                 : shared_block_base(), value {std::forward<args_t>(args)...}
             {
-            }
-
-            void* ptr() noexcept override
-            {
-                return std::addressof(value);
+                shared_block_base::counter = 1;
             }
         };
 
         const proxy_type_info* _type_info;
         shared_block_base* _block;
+        void* _ptr;
     };
 #elif 0
     template <typename counter_t>
