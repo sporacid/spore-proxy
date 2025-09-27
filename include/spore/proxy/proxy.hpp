@@ -165,7 +165,7 @@ namespace spore
     using value_proxy = proxy<facade_t, proxy_storage_chain<proxy_storage_sbo<16>, proxy_storage_value>, proxy_value_semantics<facade_t>>;
 
     template <any_proxy_facade facade_t>
-    using unique_proxy = proxy<facade_t, proxy_storage_unique, proxy_value_semantics<facade_t>>;
+    using unique_proxy = proxy<facade_t, proxy_storage_unique, proxy_pointer_semantics<facade_t>>;
 
     template <any_proxy_facade facade_t>
     using shared_proxy = proxy<facade_t, proxy_storage_shared<std::uint32_t>, proxy_pointer_semantics<facade_t>>;

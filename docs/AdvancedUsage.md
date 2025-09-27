@@ -16,8 +16,21 @@ allows to register template instantiation without any issues!
 
 # 🪞 Proxies
 
-Proxies are the main type to interact with. It encloses a facade, a storage and a semantics type and is constructed from
-a concrete implementation.
+Proxies are the main type to interact with. It encloses a [facade](#-facades), a [storage](#-storages) and
+a [semantics](#-semantics) type and is constructed from a concrete implementation.
+
+## Proxy Types
+
+The library provides standard typedefs for most commonly used proxy types.
+
+| Type            | Storage                                      | Semantics                   | Factory                        | Notes                                                                                   |
+|-----------------|----------------------------------------------|-----------------------------|--------------------------------|-----------------------------------------------------------------------------------------|
+| `value_proxy`   | `proxy_storage_sbo` or `proxy_storage_value` | `proxy_value_semantics`     | `spore::proxies::make_value`   | If the value is small enough, small buffer optimization will be used.                   |
+| `inline_proxy`  | `proxy_storage_inline`                       | `proxy_value_semantics`     | `spore::proxies::make_inline`  | N/A                                                                                     |
+| `shared_proxy`  | `proxy_storage_shared`                       | `proxy_pointer_semantics`   | `spore::proxies::make_shared`  | N/A                                                                                     |
+| `unique_proxy`  | `proxy_storage_unique`                       | `proxy_pointer_semantics`   | `spore::proxies::make_unique`  | N/A                                                                                     |
+| `view_proxy`    | `proxy_storage_non_owning`                   | `proxy_pointer_semantics`   | `spore::proxies::make_view`    | Non-owning, so cheap to copy.                                                           |
+| `forward_proxy` | `proxy_storage_non_owning`                   | `proxy_reference_semantics` | `spore::proxies::make_forward` | Non-owning, so cheap to copy. Will behave the same way as its forwarded implementation. |
 
 # 🏛️ Facades
 
@@ -114,6 +127,92 @@ struct facade : proxy_facade<facade>
 
 All dispatch implementations are guaranteed to be thread-safe (hopefully).
 
+## Template Dispatching
+
+There is no limitations on how templates dispatching is used. It's important to note that since template instantiation
+is lazy, all translation units will end-up with their own set of template mappings. However, since all translation units
+initialize the dispatcher independently, all translation units should be able to dispatch to template functions.
+
+```cpp
+struct facade : proxy_facade<facade>
+{
+    template <typename value_t>
+    void act() const
+    {
+        constexpr auto f = [](const auto& self) { self.template act<value_t>(); };
+        proxies::dispatch(f, *this);
+    }
+};
+```
+
+## Special dispatching
+
+### Dispatch or Throw
+
+`spore::proxies::dispatch_or_throw` can be used to weakly dispatch a function if the implementation has it, or throw at
+runtime.
+
+```cpp
+template <typename value_t>
+concept actable = requires(const value& value) {
+    { value.act() };
+};
+
+struct facade : proxy_facade<facade>
+{
+    void act() const
+    {
+        constexpr auto f = []<actable self_t>(const self_t& self) { self.act(); };
+        proxies::dispatch_or_throw(f, *this);
+    }
+};
+
+struct valid_impl
+{
+    void act() const {}
+};
+
+struct invalid_impl
+{
+};
+
+proxies::make_value<facade>(valid_impl {}).act();   // ✅ ok
+proxies::make_value<facade>(invalid_impl {}).act(); // ❌ throws
+```
+
+### Dispatch or Default
+
+`spore::proxies::dispatch_or_default` can be used to weakly dispatch a function if the implementation has it, or return
+a default value otherwise.
+
+```cpp
+template <typename value_t>
+concept actable = requires(const value& value) {
+    { value.act() };
+};
+
+struct facade : proxy_facade<facade>
+{
+    void act() const
+    {
+        constexpr auto f = []<actable self_t>(const self_t& self) { self.act(); };
+        proxies::dispatch_or_default(f, *this);
+    }
+};
+
+struct valid_impl
+{
+    void act() const {}
+};
+
+struct invalid_impl
+{
+};
+
+proxies::make_value<facade>(valid_impl {}).act();   // ✅ ok
+proxies::make_value<facade>(invalid_impl {}).act(); // ✅ no-op
+```
+
 # 💾 Storages
 
 Common storage implementations are available to customize how facade implementations are stored.
@@ -142,7 +241,7 @@ Value-semantics, automatic storage that type-erase its value.
 
 Special type of storage that store its value in the first compatible storage.
 
-# 🗣️Semantics
+# 🗣️ Semantics
 
 Semantics implementations allow to customize how to interact with the facade from a proxy.
 

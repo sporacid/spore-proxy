@@ -331,7 +331,7 @@ int main()
 
     {
         unique_proxy facade = proxies::make_unique<benchmarks::spore::static_::facade>(benchmarks::spore::static_::impl {});
-        benchmark.template operator()<work_value>("spore static (unique)", facade);
+        benchmark.template operator()<work_pointer>("spore static (unique)", facade);
     }
 
     {
@@ -363,7 +363,7 @@ int main()
 
     {
         unique_proxy facade = proxies::make_unique<benchmarks::spore::dynamic::facade>(benchmarks::spore::dynamic::impl {});
-        benchmark.template operator()<work_value>("spore dynamic (unique)", facade);
+        benchmark.template operator()<work_pointer>("spore dynamic (unique)", facade);
     }
 
     {
