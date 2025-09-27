@@ -14,6 +14,10 @@ When the library sees a call to `spore::proxies::dispatch`, a new mapping is reg
 dispatch call is invoked at runtime, the mapping is registered for all known implementations of this mapping. This
 allows to register template instantiation without any issues!
 
+# 🪞 Proxies
+
+Proxies are the main 
+
 # 🏛️ Facades
 
 A facade define a callable interface that dispatches to implementation. Dispatching doesn't have to be on a function
@@ -110,6 +114,87 @@ struct facade : proxy_facade<facade>
 All dispatch implementations are guaranteed to be thread-safe (hopefully).
 
 # 💾 Storages
+
+Common storage implementations are available to customize how facade implementations are stored.
+
+## Shared storage
+
+Ref-counting storage, similar to `std::shared_ptr`.
+
+## Unique storage
+
+Unique, move-only storage, similar to `std::unique_ptr`.
+
+## Value storage
+
+Value-semantics storage, that deep-copies or move its pointer.
+
+## Inline storage
+
+Value-semantics, automatic storage that doesn't type erase its value.
+
+## SBO storage
+
+Value-semantics, automatic storage that type-erase its value.
+
+## Chain storage
+
+Special type of storage that store its value in the first compatible storage.
+
+# 🗣️Semantics
+
+Semantics implementations allow to customize how to interact with the facade from a proxy.
+
+## Value semantics
+
+The proxy inherits directly from the facade and all its members will be visible from the dot operator. The facade will
+behave the same way as its enclosing proxy, i.e. if the proxy is const, only const facade functions can be called.
+
+```cpp
+void function(const value_proxy<facade>& p)
+{
+    // value semantics: const facade&
+}
+
+void function(value_proxy<facade>&& p)
+{
+    // value semantics: facade&&
+}
+```
+
+## Pointer semantics
+
+The proxy doesn't inherit directly from the facade, and it will be visible through its arrow or star operator. The
+facade will always behave as if it was a const or non-const value, despite its enclosing proxy's state.
+
+```cpp
+void function(const shared_proxy<facade>& p)
+{
+    // pointer semantics: facade*
+}
+
+void function(shared_proxy<const facade>&& p)
+{
+    // pointer semantics: const facade*
+}
+```
+
+## Reference semantics
+
+The proxy doesn't inherit directly from the facade, and it will be visible through its star operator or the function
+`get`. The facade will always behave like its ref type, despite its enclosing proxy's state.
+
+```cpp
+void function(const forward_proxy<facade&&>& p)
+{
+    // reference semantics: facade&&
+}
+
+void function(forward_proxy<const facade&>&& p)
+{
+    // reference semantics: const facade&
+}
+```
 
 # 🔃 Conversions
 
