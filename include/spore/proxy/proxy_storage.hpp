@@ -1,6 +1,7 @@
 #pragma once
 
 #include "spore/proxy/proxy_macros.hpp"
+#include "spore/proxy/proxy_type_info.hpp"
 
 #include <algorithm>
 #include <concepts>
@@ -12,99 +13,33 @@
 
 namespace spore
 {
-    struct proxy_storage_dispatch
-    {
-        void* (*allocate)();
-        void (*deallocate)(void*) noexcept;
-        void (*destroy)(void*) noexcept;
-        void (*move)(void*, void*);
-        void (*copy)(void*, const void*);
-
-        template <typename value_t>
-        static const proxy_storage_dispatch& get()
-        {
-            // clang-format off
-            static proxy_storage_dispatch dispatch {
-                .allocate = []() SPORE_PROXY_THROW_SPEC {
-                    auto* value = std::allocator<value_t>().allocate(1);
-                    return static_cast<void*>(value);
-                },
-                .deallocate = [](void* ptr) noexcept {
-                    auto* value = static_cast<value_t*>(ptr);
-                    std::allocator<value_t>().deallocate(value, 1);
-                },
-                .destroy = [](void* ptr) noexcept {
-                    if constexpr (std::is_destructible_v<value_t>)
-                    {
-                        auto* value = static_cast<value_t*>(ptr);
-                        std::destroy_at(value);
-                    }
-                },
-                .move = [](void* ptr, void* other_ptr) SPORE_PROXY_THROW_SPEC {
-                    if constexpr (std::is_trivially_move_constructible_v<value_t>)
-                    {
-                        std::memcpy(ptr, other_ptr, sizeof(value_t));
-                    }
-                    else if constexpr (std::is_move_constructible_v<value_t>)
-                    {
-                        auto* value = static_cast<value_t*>(ptr);
-                        auto* other_value = static_cast<value_t*>(other_ptr);
-                        std::construct_at(value, std::move(*other_value));
-                    }
-                    else
-                    {
-                        SPORE_PROXY_THROW("not movable");
-                    }
-                },
-                .copy = [](void* ptr, const void* other_ptr) SPORE_PROXY_THROW_SPEC {
-                    if constexpr (std::is_trivially_copy_constructible_v<value_t>)
-                    {
-                        std::memcpy(ptr, other_ptr, sizeof(value_t));
-                    }
-                    else if constexpr (std::is_copy_constructible_v<value_t>)
-                    {
-                        auto* value = static_cast<value_t*>(ptr);
-                        const auto* other_value = static_cast<const value_t*>(other_ptr);
-                        std::construct_at(value, *other_value);
-                    }
-                    else
-                    {
-                        throw std::runtime_error("not copyable");
-                    }
-                },
-            };
-            // clang-format on
-
-            return dispatch;
-        }
-    };
-
+#if 1
     template <typename counter_t>
     struct proxy_storage_shared
     {
-        // TODO @sporacid fix shared storage being different from others with block dispatch.
+        // TODO @sporacid fix shared storage being different from others with block type_info.
 
         proxy_storage_shared()
-            : _dispatch(nullptr),
-              _ptr(nullptr)
+            : _type_info(nullptr),
+              _block(nullptr)
         {
         }
 
         template <typename value_t, typename... args_t>
         explicit proxy_storage_shared(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
-            shared_block<value_t>* block = new shared_block<value_t> {.counter {1}, .value {std::forward<args_t>(args)...}};
+            shared_block<value_t>* block = new shared_block<value_t> {std::forward<args_t>(args)...};
 
-            _dispatch = std::addressof(proxy_storage_dispatch::get<shared_block<value_t>>());
-            _ptr = block;
+            _type_info = std::addressof(proxies::detail::type_info<value_t>());
+            _block = block;
         }
 
         proxy_storage_shared(const proxy_storage_shared& other) noexcept
         {
-            _dispatch = other._dispatch;
-            _ptr = other._ptr;
+            _type_info = other._type_info;
+            _block = other._block;
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
                 ++counter();
             }
@@ -121,16 +56,140 @@ namespace spore
 
         proxy_storage_shared(proxy_storage_shared&& other) noexcept
         {
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
+            _block = other._block;
+
+            other._type_info = nullptr;
+            other._block = nullptr;
+        }
+
+        proxy_storage_shared& operator=(proxy_storage_shared&& other) noexcept
+        {
+            std::swap(_type_info, other._type_info);
+            std::swap(_block, other._block);
+
+            return *this;
+        }
+
+        ~proxy_storage_shared() noexcept
+        {
+            reset();
+        }
+
+        [[nodiscard]] void* ptr() const noexcept
+        {
+            return _block != nullptr ? _block->ptr() : nullptr;
+        }
+
+        [[nodiscard]] const proxy_type_info* type_info() const noexcept
+        {
+            return _type_info;
+        }
+
+        void reset() noexcept
+        {
+            if (_type_info != nullptr)
+            {
+                if (--counter() == 0)
+                {
+                    SPORE_PROXY_ASSERT(_block != nullptr);
+
+                    delete _block;
+                }
+
+                _type_info = nullptr;
+                _block = nullptr;
+            }
+        }
+
+        counter_t& counter() noexcept
+        {
+            SPORE_PROXY_ASSERT(_block != nullptr);
+            return _block->counter;
+        }
+
+      private:
+        struct shared_block_base
+        {
+            counter_t counter;
+            shared_block_base() : counter(1) {}
+            virtual void* ptr() noexcept = 0;
+            virtual ~shared_block_base() = default;
+        };
+
+        template <typename value_t>
+        struct shared_block : shared_block_base
+        {
+            value_t value;
+
+            template <typename... args_t>
+            explicit shared_block(args_t&&... args)
+                : shared_block_base(), value {std::forward<args_t>(args)...}
+            {
+            }
+
+            void* ptr() noexcept override
+            {
+                return std::addressof(value);
+            }
+        };
+
+        const proxy_type_info* _type_info;
+        shared_block_base* _block;
+    };
+#elif 0
+    template <typename counter_t>
+    struct proxy_storage_shared
+    {
+        // TODO @sporacid fix shared storage being different from others with block type_info.
+
+        proxy_storage_shared()
+            : _type_info(nullptr),
+              _ptr(nullptr)
+        {
+        }
+
+        template <typename value_t, typename... args_t>
+        explicit proxy_storage_shared(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
+        {
+            shared_block<value_t>* block = new shared_block<value_t> {.counter {1}, .value {std::forward<args_t>(args)...}};
+
+            _type_info = std::addressof(proxy_storage_type_info::get<shared_block<value_t>>());
+            _ptr = block;
+        }
+
+        proxy_storage_shared(const proxy_storage_shared& other) noexcept
+        {
+            _type_info = other._type_info;
             _ptr = other._ptr;
 
-            other._dispatch = nullptr;
+            if (_type_info != nullptr)
+            {
+                ++counter();
+            }
+        }
+
+        proxy_storage_shared& operator=(const proxy_storage_shared& other) noexcept
+        {
+            reset();
+
+            *this = proxy_storage_shared {other};
+
+            return *this;
+        }
+
+        proxy_storage_shared(proxy_storage_shared&& other) noexcept
+        {
+            _type_info = other._type_info;
+            _ptr = other._ptr;
+
+            other._type_info = nullptr;
             other._ptr = nullptr;
         }
 
         proxy_storage_shared& operator=(proxy_storage_shared&& other) noexcept
         {
-            std::swap(_dispatch, other._dispatch);
+            std::swap(_type_info, other._type_info);
             std::swap(_ptr, other._ptr);
 
             return *this;
@@ -146,24 +205,24 @@ namespace spore
             return _ptr != nullptr ? std::addressof(static_cast<shared_block<std::byte>*>(_ptr)->value) : nullptr;
         }
 
-        [[nodiscard]] const proxy_storage_dispatch* dispatch() const noexcept
+        [[nodiscard]] const proxy_storage_type_info* type_info() const noexcept
         {
-            return _dispatch;
+            return _type_info;
         }
 
         void reset() noexcept
         {
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
                 if (--counter() == 0)
                 {
                     SPORE_PROXY_ASSERT(_ptr != nullptr);
 
-                    _dispatch->destroy(_ptr);
-                    _dispatch->deallocate(_ptr);
+                    _type_info->destroy(_ptr);
+                    _type_info->deallocate(_ptr);
                 }
 
-                _dispatch = nullptr;
+                _type_info = nullptr;
                 _ptr = nullptr;
             }
         }
@@ -182,14 +241,133 @@ namespace spore
             value_t value;
         };
 
-        const proxy_storage_dispatch* _dispatch;
+        const proxy_storage_type_info* _type_info;
         void* _ptr;
     };
+#else
+    template <typename counter_t>
+    struct proxy_storage_shared
+    {
+        proxy_storage_shared()
+            : _type_info(nullptr),
+              _counter(nullptr),
+              _ptr(nullptr)
+        {
+        }
+
+        template <typename value_t, typename... args_t>
+        explicit proxy_storage_shared(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
+        {
+            shared_block<value_t>* block = new shared_block<value_t> {.counter {1}, .value {std::forward<args_t>(args)...}};
+            _type_info = std::addressof(proxy_storage_type_info::get<shared_block<value_t>>());
+            _counter = std::addressof(block->counter);
+            _ptr = std::addressof(block->value);
+        }
+
+        proxy_storage_shared(const proxy_storage_shared& other) noexcept
+        {
+            _type_info = other._type_info;
+
+            if (_type_info != nullptr)
+            {
+                _counter = other._counter;
+                _ptr = other._ptr;
+
+                SPORE_PROXY_ASSERT(_type_info != nullptr);
+                SPORE_PROXY_ASSERT(_counter != nullptr);
+                SPORE_PROXY_ASSERT(_ptr != nullptr);
+
+                ++counter();
+            }
+        }
+
+        proxy_storage_shared& operator=(const proxy_storage_shared& other) noexcept
+        {
+            reset();
+
+            *this = proxy_storage_shared {other};
+
+            return *this;
+        }
+
+        proxy_storage_shared(proxy_storage_shared&& other) noexcept
+        {
+            _type_info = other._type_info;
+            _counter = other._counter;
+            _ptr = other._ptr;
+
+            other._type_info = nullptr;
+            other._counter = nullptr;
+            other._ptr = nullptr;
+        }
+
+        proxy_storage_shared& operator=(proxy_storage_shared&& other) noexcept
+        {
+            std::swap(_type_info, other._type_info);
+            std::swap(_counter, other._counter);
+            std::swap(_ptr, other._ptr);
+
+            return *this;
+        }
+
+        ~proxy_storage_shared() noexcept
+        {
+            reset();
+        }
+
+        [[nodiscard]] void* ptr() const noexcept
+        {
+            return _ptr;
+        }
+
+        [[nodiscard]] const proxy_storage_type_info* type_info() const noexcept
+        {
+            return _type_info;
+        }
+
+        void reset() noexcept
+        {
+            if (_type_info != nullptr)
+            {
+                SPORE_PROXY_ASSERT(_counter != nullptr);
+                SPORE_PROXY_ASSERT(_ptr != nullptr);
+
+                if (--counter() == 0)
+                {
+                    _type_info->destroy(_counter);
+                    _type_info->deallocate(_counter);
+                }
+
+                _type_info = nullptr;
+                _counter = nullptr;
+                _ptr = nullptr;
+            }
+        }
+
+        counter_t& counter() noexcept
+        {
+            SPORE_PROXY_ASSERT(_counter != nullptr);
+            return *_counter;
+        }
+
+      private:
+        template <typename value_t>
+        struct shared_block
+        {
+            counter_t counter;
+            value_t value;
+        };
+
+        const proxy_storage_type_info* _type_info;
+        counter_t* _counter;
+        void* _ptr;
+    };
+#endif
 
     struct proxy_storage_unique
     {
         proxy_storage_unique()
-            : _dispatch(nullptr),
+            : _type_info(nullptr),
               _ptr(nullptr)
         {
         }
@@ -198,30 +376,30 @@ namespace spore
         constexpr explicit proxy_storage_unique(storage_t&& storage) noexcept
             requires(any_proxy_storage<std::decay_t<storage_t>>)
         {
-            _dispatch = storage.dispatch();
+            _type_info = storage.type_info();
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _ptr = _dispatch->allocate();
+                _ptr = _type_info->allocate();
 
                 if constexpr (std::is_rvalue_reference_v<storage_t>)
                 {
                     if constexpr (std::is_move_constructible_v<std::decay_t<storage_t>>)
                     {
-                        _dispatch->move(_ptr, storage.ptr());
+                        _type_info->move(_ptr, storage.ptr());
                     }
                     else
                     {
                         static_assert(std::is_copy_constructible_v<std::decay_t<storage_t>>);
 
-                        _dispatch->copy(_ptr, storage.ptr());
+                        _type_info->copy(_ptr, storage.ptr());
                     }
                 }
                 else
                 {
                     static_assert(std::is_copy_constructible_v<std::decay_t<storage_t>>);
 
-                    _dispatch->copy(_ptr, storage.ptr());
+                    _type_info->copy(_ptr, storage.ptr());
                 }
             }
         }
@@ -229,16 +407,16 @@ namespace spore
         template <typename value_t, typename... args_t>
         explicit proxy_storage_unique(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
-            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
+            _type_info = std::addressof(proxies::detail::type_info<value_t>());
             _ptr = new value_t {std::forward<args_t>(args)...};
         }
 
         proxy_storage_unique(proxy_storage_unique&& other) noexcept
         {
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
             _ptr = other._ptr;
 
-            other._dispatch = nullptr;
+            other._type_info = nullptr;
             other._ptr = nullptr;
         }
 
@@ -252,7 +430,7 @@ namespace spore
 
         proxy_storage_unique& operator=(proxy_storage_unique&& other) noexcept
         {
-            std::swap(_dispatch, other._dispatch);
+            std::swap(_type_info, other._type_info);
             std::swap(_ptr, other._ptr);
 
             return *this;
@@ -263,34 +441,34 @@ namespace spore
             return _ptr;
         }
 
-        [[nodiscard]] const proxy_storage_dispatch* dispatch() const noexcept
+        [[nodiscard]] const proxy_type_info* type_info() const noexcept
         {
-            return _dispatch;
+            return _type_info;
         }
 
         void reset() noexcept
         {
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
                 SPORE_PROXY_ASSERT(_ptr != nullptr);
 
-                _dispatch->destroy(_ptr);
-                _dispatch->deallocate(_ptr);
+                _type_info->destroy(_ptr);
+                _type_info->deallocate(_ptr);
 
-                _dispatch = nullptr;
+                _type_info = nullptr;
                 _ptr = nullptr;
             }
         }
 
       private:
-        const proxy_storage_dispatch* _dispatch;
+        const proxy_type_info* _type_info;
         void* _ptr;
     };
 
     struct proxy_storage_value
     {
         proxy_storage_value()
-            : _dispatch(nullptr),
+            : _type_info(nullptr),
               _ptr(nullptr)
         {
         }
@@ -299,30 +477,30 @@ namespace spore
         constexpr explicit proxy_storage_value(storage_t&& storage) noexcept
             requires(any_proxy_storage<std::decay_t<storage_t>>)
         {
-            _dispatch = storage.dispatch();
+            _type_info = storage.type_info();
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _ptr = _dispatch->allocate();
+                _ptr = _type_info->allocate();
 
                 if constexpr (std::is_rvalue_reference_v<storage_t>)
                 {
                     if constexpr (std::is_move_constructible_v<std::decay_t<storage_t>>)
                     {
-                        _dispatch->move(_ptr, storage.ptr());
+                        _type_info->move(_ptr, storage.ptr());
                     }
                     else
                     {
                         static_assert(std::is_copy_constructible_v<std::decay_t<storage_t>>);
 
-                        _dispatch->copy(_ptr, storage.ptr());
+                        _type_info->copy(_ptr, storage.ptr());
                     }
                 }
                 else
                 {
                     static_assert(std::is_copy_constructible_v<std::decay_t<storage_t>>);
 
-                    _dispatch->copy(_ptr, storage.ptr());
+                    _type_info->copy(_ptr, storage.ptr());
                 }
             }
         }
@@ -330,19 +508,19 @@ namespace spore
         template <typename value_t, typename... args_t>
         explicit proxy_storage_value(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
-            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
-            _ptr = _dispatch->allocate();
+            _type_info = std::addressof(proxies::detail::type_info<value_t>());
+            _ptr = _type_info->allocate();
             std::construct_at(reinterpret_cast<value_t*>(_ptr), std::forward<args_t>(args)...);
         }
 
         proxy_storage_value(proxy_storage_value&& other) noexcept
         {
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _ptr = _dispatch->allocate();
-                _dispatch->move(ptr(), other.ptr());
+                _ptr = _type_info->allocate();
+                _type_info->move(ptr(), other.ptr());
             }
             else
             {
@@ -352,12 +530,12 @@ namespace spore
 
         proxy_storage_value(const proxy_storage_value& other) SPORE_PROXY_THROW_SPEC
         {
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _ptr = _dispatch->allocate();
-                _dispatch->copy(ptr(), other.ptr());
+                _ptr = _type_info->allocate();
+                _type_info->copy(ptr(), other.ptr());
             }
             else
             {
@@ -374,12 +552,12 @@ namespace spore
         {
             reset();
 
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _ptr = _dispatch->allocate();
-                _dispatch->move(ptr(), other.ptr());
+                _ptr = _type_info->allocate();
+                _type_info->move(ptr(), other.ptr());
             }
             else
             {
@@ -393,12 +571,12 @@ namespace spore
         {
             reset();
 
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _ptr = _dispatch->allocate();
-                _dispatch->copy(ptr(), other.ptr());
+                _ptr = _type_info->allocate();
+                _type_info->copy(ptr(), other.ptr());
             }
             else
             {
@@ -413,34 +591,34 @@ namespace spore
             return _ptr;
         }
 
-        [[nodiscard]] const proxy_storage_dispatch* dispatch() const noexcept
+        [[nodiscard]] const proxy_type_info* type_info() const noexcept
         {
-            return _dispatch;
+            return _type_info;
         }
 
         void reset() noexcept
         {
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
                 SPORE_PROXY_ASSERT(_ptr != nullptr);
 
-                _dispatch->destroy(_ptr);
-                _dispatch->deallocate(_ptr);
+                _type_info->destroy(_ptr);
+                _type_info->deallocate(_ptr);
 
-                _dispatch = nullptr;
+                _type_info = nullptr;
                 _ptr = nullptr;
             }
         }
 
       private:
-        const proxy_storage_dispatch* _dispatch;
+        const proxy_type_info* _type_info;
         void* _ptr;
     };
 
     struct proxy_storage_non_owning
     {
         proxy_storage_non_owning()
-            : _dispatch(nullptr),
+            : _type_info(nullptr),
               _ptr(nullptr)
         {
         }
@@ -449,28 +627,28 @@ namespace spore
         constexpr explicit proxy_storage_non_owning(SPORE_PROXY_LIFETIME_BOUND storage_t&& storage) noexcept
             requires(any_proxy_storage<std::decay_t<storage_t>>)
         {
-            _dispatch = storage.dispatch();
+            _type_info = storage.type_info();
             _ptr = storage.ptr();
         }
 
         template <typename value_t>
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, SPORE_PROXY_LIFETIME_BOUND value_t& value) noexcept
         {
-            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
+            _type_info = std::addressof(proxies::detail::type_info<value_t>());
             _ptr = std::addressof(value);
         }
 
         template <typename value_t>
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, SPORE_PROXY_LIFETIME_BOUND value_t&& value) noexcept
         {
-            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
+            _type_info = std::addressof(proxies::detail::type_info<value_t>());
             _ptr = std::addressof(value);
         }
 
         template <typename value_t>
         constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, SPORE_PROXY_LIFETIME_BOUND const value_t& value) noexcept
         {
-            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
+            _type_info = std::addressof(proxies::detail::type_info<value_t>());
             _ptr = std::addressof(const_cast<value_t&>(value));
         }
 
@@ -479,19 +657,19 @@ namespace spore
             return _ptr;
         }
 
-        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
+        [[nodiscard]] constexpr const proxy_type_info* type_info() const noexcept
         {
-            return _dispatch;
+            return _type_info;
         }
 
         constexpr void reset() noexcept
         {
-            _dispatch = nullptr;
+            _type_info = nullptr;
             _ptr = nullptr;
         }
 
       private:
-        const proxy_storage_dispatch* _dispatch;
+        const proxy_type_info* _type_info;
         void* _ptr;
     };
 
@@ -502,7 +680,7 @@ namespace spore
         static_assert(align_v <= size_v);
 
         proxy_storage_sbo()
-            : _dispatch(nullptr)
+            : _type_info(nullptr)
         {
             std::ranges::fill(_storage, 0);
         }
@@ -511,27 +689,27 @@ namespace spore
         constexpr explicit proxy_storage_sbo(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
             requires(is_compatible<value_t>())
         {
-            _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
+            _type_info = std::addressof(proxies::detail::type_info<value_t>());
             std::construct_at(static_cast<value_t*>(ptr()), std::forward<args_t>(args)...);
         }
 
         constexpr proxy_storage_sbo(const proxy_storage_sbo& other) SPORE_PROXY_THROW_SPEC
         {
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _dispatch->copy(ptr(), other.ptr());
+                _type_info->copy(ptr(), other.ptr());
             }
         }
 
         constexpr proxy_storage_sbo(proxy_storage_sbo&& other) noexcept
         {
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _dispatch->move(ptr(), other.ptr());
+                _type_info->move(ptr(), other.ptr());
             }
         }
 
@@ -544,11 +722,11 @@ namespace spore
         {
             reset();
 
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _dispatch->copy(ptr(), other.ptr());
+                _type_info->copy(ptr(), other.ptr());
             }
 
             return *this;
@@ -558,11 +736,11 @@ namespace spore
         {
             reset();
 
-            _dispatch = other._dispatch;
+            _type_info = other._type_info;
 
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _dispatch->move(ptr(), other.ptr());
+                _type_info->move(ptr(), other.ptr());
             }
 
             return *this;
@@ -570,25 +748,25 @@ namespace spore
 
         [[nodiscard]] constexpr void* ptr() const noexcept
         {
-            return _dispatch != nullptr ? std::addressof(_storage[0]) : nullptr;
+            return _type_info != nullptr ? std::addressof(_storage[0]) : nullptr;
         }
 
-        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
+        [[nodiscard]] constexpr const proxy_type_info* type_info() const noexcept
         {
-            return _dispatch;
+            return _type_info;
         }
 
         void reset() noexcept
         {
-            if (_dispatch != nullptr)
+            if (_type_info != nullptr)
             {
-                _dispatch->destroy(ptr());
-                _dispatch = nullptr;
+                _type_info->destroy(ptr());
+                _type_info = nullptr;
             }
         }
 
       private:
-        const proxy_storage_dispatch* _dispatch;
+        const proxy_type_info* _type_info;
         alignas(align_v) mutable std::byte _storage[size_v];
 
         template <typename value_t>
@@ -616,9 +794,9 @@ namespace spore
             return _storage.has_value() ? std::addressof(_storage.value()) : nullptr;
         }
 
-        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
+        [[nodiscard]] constexpr const proxy_type_info* type_info() const noexcept
         {
-            return std::addressof(proxy_storage_dispatch::get<value_t>());
+            return std::addressof(proxies::detail::type_info<value_t>());
         }
 
         void reset() noexcept
@@ -636,24 +814,24 @@ namespace spore
         proxy_storage_chain() = default;
 
         template <typename value_t, typename... args_t>
-        explicit proxy_storage_chain(std::in_place_type_t<value_t> type, args_t&&... args) SPORE_PROXY_THROW_SPEC
+        constexpr explicit proxy_storage_chain(std::in_place_type_t<value_t> type, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
             std::ignore = (... or try_construct<storages_t>(type, std::forward<args_t>(args)...));
         }
 
-        [[nodiscard]] void* ptr() const noexcept
+        [[nodiscard]] constexpr void* ptr() const noexcept
         {
             constexpr auto visitor = [](const auto& storage) { return storage.ptr(); };
             return _storage.has_value() ? std::visit(visitor, _storage.value()) : nullptr;
         }
 
-        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
+        [[nodiscard]] constexpr const proxy_type_info* type_info() const noexcept
         {
-            constexpr auto visitor = [](const auto& storage) { return storage.dispatch(); };
+            constexpr auto visitor = [](const auto& storage) { return storage.type_info(); };
             return _storage.has_value() ? std::visit(visitor, _storage.value()) : nullptr;
         }
 
-        void reset() noexcept
+        constexpr void reset() noexcept
         {
             _storage = std::nullopt;
         }
