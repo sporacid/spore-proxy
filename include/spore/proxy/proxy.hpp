@@ -10,7 +10,7 @@
 
 namespace spore
 {
-    template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t = proxy_value_semantics<facade_t>>
+    template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
     struct SPORE_PROXY_ENFORCE_EBCO proxy final : semantics_t, private proxy_base
     {
         template <typename value_t, typename... args_t>
@@ -42,6 +42,30 @@ namespace spore
             : proxy_base(other.type_index()), _storage(std::move(other._storage))
         {
             proxies::detail::add_facade<facade_t>();
+
+            _ptr = _storage.ptr();
+        }
+
+        template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
+        constexpr proxy(const proxy<other_facade_t, other_storage_t, other_semantics_t>& other)
+            noexcept(std::is_nothrow_constructible_v<storage_t, const other_storage_t&>)
+            requires proxy_conversion<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>::can_copy
+            : proxy_base(other.type_index()), _storage(other._storage)
+        {
+            proxies::detail::add_facade<facade_t>();
+            proxies::detail::add_facade<other_facade_t>();
+
+            _ptr = _storage.ptr();
+        }
+
+        template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
+        constexpr proxy(proxy<other_facade_t, other_storage_t, other_semantics_t>&& other)
+            noexcept(std::is_nothrow_constructible_v<storage_t, other_storage_t&&>)
+            requires proxy_conversion<proxy, proxy<other_facade_t, other_storage_t, other_semantics_t>>::can_move
+            : proxy_base(other.type_index()), _storage(std::move(other._storage))
+        {
+            proxies::detail::add_facade<facade_t>();
+            proxies::detail::add_facade<other_facade_t>();
 
             _ptr = _storage.ptr();
         }
@@ -135,7 +159,7 @@ namespace spore
     using inline_proxy = proxy<facade_t, proxy_storage_inline<value_t>, proxy_value_semantics<facade_t>>;
 
     template <any_proxy_facade facade_t>
-    using value_proxy = proxy<facade_t, proxy_storage_fallback<proxy_storage_sbo<16>, proxy_storage_value>, proxy_value_semantics<facade_t>>;
+    using value_proxy = proxy<facade_t, proxy_storage_chain<proxy_storage_sbo<16>, proxy_storage_value>, proxy_value_semantics<facade_t>>;
 
     template <any_proxy_facade facade_t>
     using unique_proxy = proxy<facade_t, proxy_storage_unique, proxy_value_semantics<facade_t>>;
