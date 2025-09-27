@@ -446,7 +446,7 @@ namespace spore
         }
 
         template <typename storage_t>
-        constexpr explicit proxy_storage_non_owning(storage_t&& storage) noexcept
+        constexpr explicit proxy_storage_non_owning(SPORE_PROXY_LIFETIME_BOUND storage_t&& storage) noexcept
             requires(any_proxy_storage<std::decay_t<storage_t>>)
         {
             _dispatch = storage.dispatch();
@@ -454,21 +454,21 @@ namespace spore
         }
 
         template <typename value_t>
-        constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, value_t& value) noexcept
+        constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, SPORE_PROXY_LIFETIME_BOUND value_t& value) noexcept
         {
             _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
             _ptr = std::addressof(value);
         }
 
         template <typename value_t>
-        constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, value_t&& value) noexcept
+        constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, SPORE_PROXY_LIFETIME_BOUND value_t&& value) noexcept
         {
             _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
             _ptr = std::addressof(value);
         }
 
         template <typename value_t>
-        constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, const value_t& value) noexcept
+        constexpr explicit proxy_storage_non_owning(std::in_place_type_t<value_t>, SPORE_PROXY_LIFETIME_BOUND const value_t& value) noexcept
         {
             _dispatch = std::addressof(proxy_storage_dispatch::get<value_t>());
             _ptr = std::addressof(const_cast<value_t&>(value));
@@ -479,15 +479,15 @@ namespace spore
             return _ptr;
         }
 
+        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
+        {
+            return _dispatch;
+        }
+
         constexpr void reset() noexcept
         {
             _dispatch = nullptr;
             _ptr = nullptr;
-        }
-
-        [[nodiscard]] constexpr const proxy_storage_dispatch* dispatch() const noexcept
-        {
-            return _dispatch;
         }
 
       private:
