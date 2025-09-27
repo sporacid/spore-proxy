@@ -114,26 +114,70 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
             // value semantics conversion
 
-            static_assert_conversion<value_proxy<facade>, value_proxy<facade>, should_copy, should_move>();
-            static_assert_conversion<value_proxy<facade>, value_proxy<base>, should_not_copy, should_not_move>();
-            static_assert_conversion<value_proxy<base>, value_proxy<facade>, should_copy, should_move>();
+            static_assert_conversion<value_proxy<facade>, value_proxy<facade>, copy::enabled, move::enabled>();
+            static_assert_conversion<value_proxy<facade>, value_proxy<base>, copy::disabled, move::disabled>();
+            static_assert_conversion<value_proxy<base>, value_proxy<facade>, copy::enabled, move::enabled>();
 
             // pointer semantics conversion
 
-            static_assert_conversion<view_proxy<facade>, view_proxy<facade>, should_copy, should_not_move>();
-            static_assert_conversion<view_proxy<facade>, view_proxy<const facade>, should_not_copy, should_not_move>();
-            static_assert_conversion<view_proxy<const facade>, view_proxy<facade>, should_copy, should_not_move>();
-            static_assert_conversion<view_proxy<const facade>, view_proxy<const facade>, should_copy, should_not_move>();
+            static_assert_conversion<view_proxy<facade>, view_proxy<facade>, copy::enabled, move::disabled>();
+            static_assert_conversion<view_proxy<facade>, view_proxy<const facade>, copy::disabled, move::disabled>();
+            static_assert_conversion<view_proxy<const facade>, view_proxy<facade>, copy::enabled, move::disabled>();
+            static_assert_conversion<view_proxy<const facade>, view_proxy<const facade>, copy::enabled, move::disabled>();
 
-            static_assert_conversion<view_proxy<base>, view_proxy<facade>, should_copy, should_not_move>();
-            static_assert_conversion<view_proxy<base>, view_proxy<const facade>, should_not_copy, should_not_move>();
-            static_assert_conversion<view_proxy<const base>, view_proxy<facade>, should_copy, should_not_move>();
-            static_assert_conversion<view_proxy<const base>, view_proxy<const facade>, should_copy, should_not_move>();
+            static_assert_conversion<view_proxy<base>, view_proxy<facade>, copy::enabled, move::disabled>();
+            static_assert_conversion<view_proxy<base>, view_proxy<const facade>, copy::disabled, move::disabled>();
+            static_assert_conversion<view_proxy<const base>, view_proxy<facade>, copy::enabled, move::disabled>();
+            static_assert_conversion<view_proxy<const base>, view_proxy<const facade>, copy::enabled, move::disabled>();
 
-            static_assert_conversion<view_proxy<facade>, value_proxy<facade>, should_copy, should_move>();
-            static_assert_conversion<view_proxy<base>, value_proxy<facade>, should_copy, should_move>();
-            static_assert_conversion<view_proxy<const facade>, value_proxy<facade>, should_copy, should_move>();
-            static_assert_conversion<view_proxy<const base>, value_proxy<facade>, should_copy, should_move>();
+            static_assert_conversion<view_proxy<facade>, value_proxy<facade>, copy::enabled, move::enabled>();
+            static_assert_conversion<view_proxy<base>, value_proxy<facade>, copy::enabled, move::enabled>();
+            static_assert_conversion<view_proxy<const facade>, value_proxy<facade>, copy::enabled, move::enabled>();
+            static_assert_conversion<view_proxy<const base>, value_proxy<facade>, copy::enabled, move::enabled>();
+
+            // forward semantics conversions
+
+            static_assert_conversion<forward_proxy<facade>, forward_proxy<facade>, copy::enabled, move::enabled>();
+            static_assert_conversion<forward_proxy<facade>, forward_proxy<facade&>, copy::enabled, move::disabled>();
+            static_assert_conversion<forward_proxy<facade>, forward_proxy<facade&&>, copy::enabled, move::enabled>();
+            static_assert_conversion<forward_proxy<facade>, forward_proxy<const facade>, copy::enabled, move::disabled>();
+            static_assert_conversion<forward_proxy<facade>, forward_proxy<const facade&>, copy::enabled, move::disabled>();
+            static_assert_conversion<forward_proxy<facade>, forward_proxy<const facade&&>, copy::enabled, move::enabled>();
+
+            static_assert_conversion<forward_proxy<facade&>, forward_proxy<facade>, copy::enabled, move::enabled>();
+            static_assert_conversion<forward_proxy<facade&>, forward_proxy<facade&>, copy::enabled, move::disabled>();
+            static_assert_conversion<forward_proxy<facade&>, forward_proxy<facade&&>, copy::enabled, move::enabled>();
+            static_assert_conversion<forward_proxy<facade&>, forward_proxy<const facade>, copy::enabled, move::disabled>();
+            static_assert_conversion<forward_proxy<facade&>, forward_proxy<const facade&>, copy::enabled, move::disabled>();
+            static_assert_conversion<forward_proxy<facade&>, forward_proxy<const facade&&>, copy::enabled, move::enabled>();
+
+            static_assert_conversion<forward_proxy<facade&&>, forward_proxy<facade>, copy::enabled, move::enabled>();
+            static_assert_conversion<forward_proxy<facade&&>, forward_proxy<facade&>, copy::enabled, move::disabled>();
+            static_assert_conversion<forward_proxy<facade&&>, forward_proxy<facade&&>, copy::enabled, move::enabled>();
+            static_assert_conversion<forward_proxy<facade&&>, forward_proxy<const facade>, copy::enabled, move::disabled>();
+            static_assert_conversion<forward_proxy<facade&&>, forward_proxy<const facade&>, copy::enabled, move::disabled>();
+            static_assert_conversion<forward_proxy<facade&&>, forward_proxy<const facade&&>, copy::enabled, move::enabled>();
+
+            static_assert_conversion<forward_proxy<const facade>, forward_proxy<facade>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade>, forward_proxy<facade&>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade>, forward_proxy<facade&&>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade>, forward_proxy<const facade>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade>, forward_proxy<const facade&>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade>, forward_proxy<const facade&&>, copy::disabled, move::disabled>();
+
+            static_assert_conversion<forward_proxy<const facade&>, forward_proxy<facade>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&>, forward_proxy<facade&>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&>, forward_proxy<facade&&>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&>, forward_proxy<const facade>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&>, forward_proxy<const facade&>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&>, forward_proxy<const facade&&>, copy::disabled, move::disabled>();
+
+            static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<facade>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<facade&>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<facade&&>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<const facade>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<const facade&>, copy::disabled, move::disabled>();
+            static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<const facade&&>, copy::disabled, move::disabled>();
         }
 
         SECTION("value facade to view facade")
