@@ -1,43 +1,28 @@
 # 📦 Spore Proxy - Template-Friendly Runtime Polymorphism
 
-`spore-proxy` is a header-only, no-dependencies, type-erasure and runtime polymorphism library. 
-
-**Short tagline or elevator pitch.**  
-Describe what your library does in one or two sentences.
+`spore-proxy` is a C++20, header-only, no-dependencies, type-erasure and runtime polymorphism library that allows
+blazing fast
+virtual template dispatching.
 
 ---
 
 ## 🚀 Features
 
-- ✅ Feature 1 (e.g., Type-safe API)
-- ✅ Feature 2 (e.g., Zero dependencies)
-- ✅ Feature 3 (e.g., Cross-platform support)
-- ✅ Feature 4 (e.g., Header-only)
+- ✅ Template function dispatching
+- ✅ Type-safe API
+- ✅ Zero dependencies
+- ✅ Cross-platform support
+- ✅ Header-only
 
 ---
 
 ## 📥 Installation
 
-### Using CMake
-
-```bash
-git clone https://github.com/yourusername/project-name.git
-cd project-name
-mkdir build && cd build
-cmake ..
-make
-```
-
-### As a Submodule
-
-```bash
-git submodule add https://github.com/yourusername/project-name.git
-```
-
-Include the headers in your project:
+Simply copy the content of `include` directory in your project, and you're set up! Simply include the `proxy.hpp` header
+to have access to all features.
 
 ```cpp
-#include "project_name/your_header.hpp"
+#include "spore/proxy/proxy.hpp"
 ```
 
 ---
@@ -45,39 +30,58 @@ Include the headers in your project:
 ## 🧪 Usage
 
 ```cpp
-#include <project_name/project.hpp>
+#include <iostream>
 
-int main() {
-    project::do_something();
+#include "spore/proxy/proxy.hpp"
+
+using namespace spore;
+
+struct facade : proxy_facade<facade>
+{
+    void act() const
+    {
+        constexpr auto f = [](const auto& self) { self.act(); };
+        proxies::dispatch(f, *this);
+    }
+};
+
+struct impl
+{
+    void act() const
+    {
+        std::cout << "Action!" << std::endl;
+    }
+};
+
+int main()
+{
+    unique_proxy<facade> p = proxies::make_unique<facade, impl>();
+    p.act();
+
+    return 0;
 }
 ```
 
-More examples can be found in the [examples/](examples/) directory.
+More examples can be found in the [examples](examples) directory, or you can have a look
+at [tests](tests/src/t_proxy.cpp) for more advanced usage!
 
 ---
 
 ## 📚 Documentation
 
-Full documentation is available at: [your-docs-link.com](https://your-docs-link.com)  
-Or generate locally:
-
-```bash
-doxygen Doxyfile
-```
+Full documentation is [available here](docs/AdvancedUsage.md).
 
 ---
 
 ## 🧰 Requirements
 
-- C++17 or later
-- CMake ≥ 3.15
-- Tested on Linux, macOS, Windows
+- C++20 or later
 
 ---
 
 ## 🧑‍💻 Contributing
 
-We welcome contributions! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+This project welcomes contributions and suggestions.
 
 To report bugs or request features, open an issue.
 
@@ -85,12 +89,16 @@ To report bugs or request features, open an issue.
 
 ## 🛡️ License
 
-This project is licensed under the [MIT License](LICENSE).  
+This project is licensed under the [Boost License](LICENSE).
+
 Feel free to use, modify, and distribute.
 
 ---
 
 ## ❤️ Acknowledgments
 
-- Inspired by [SomeProject](https://github.com/someuser/someproject)
-- Thanks to all contributors and 
+- Inspired by [boost-ext/te](https://github.com/boost-ext/te) and [microsoft/proxy](https://github.com/microsoft/proxy)
+- Inspired by [this article](https://mc-deltat.github.io/articles/stateful-metaprogramming-cpp20)
+  by [Reece Jones](https://github.com/ReeceJones) to implement stateful meta-programming at scale
+- Thanks to [Kris Jusiak](https://github.com/kris-jusiak) for making awesome libraries and inspiring me to implement
+  the craziest ideas

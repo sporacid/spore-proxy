@@ -85,7 +85,7 @@ namespace spore
         }
 
         template <typename mapping_t>
-        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static constexpr proxies::detail::dispatch_type<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
+        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static proxies::detail::dispatch_type<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
         {
             const std::vector<proxies::detail::dispatch_type<mapping_t>>& mapping_dispatchers = dispatches<mapping_t>;
 
@@ -130,8 +130,9 @@ namespace spore
         }
 
         template <typename mapping_t>
-        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static constexpr proxies::detail::dispatch_type<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
+        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static proxies::detail::dispatch_type<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
         {
+            [[maybe_unused]] static const bool once = [] { std::atomic_thread_fence(std::memory_order_acquire); };
             SPORE_PROXY_ASSERT(type_index < size_v);
             return dispatches<mapping_t>[type_index];
         }
@@ -141,6 +142,7 @@ namespace spore
         {
             SPORE_PROXY_ASSERT(type_index < size_v);
             std::construct_at(std::addressof(dispatches<mapping_t>[type_index]), dispatcher);
+            std::atomic_thread_fence(std::memory_order_release);
         }
     };
 
