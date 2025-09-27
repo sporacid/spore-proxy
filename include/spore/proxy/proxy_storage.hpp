@@ -453,9 +453,7 @@ namespace spore
         template <typename value_t>
         static consteval bool is_constructible()
         {
-            constexpr bool is_size_compatible = sizeof(value_t) <= size_v;
-            constexpr bool is_alignment_compatible = align_v % alignof(value_t) == 0;
-            return is_size_compatible and is_alignment_compatible;
+            return sizeof(value_t) <= size_v and align_v % alignof(value_t) == 0;
         }
 
         proxy_storage_sbo() = default;
@@ -566,9 +564,7 @@ namespace spore
 
         [[nodiscard]] static constexpr bool is_constructible(const proxy_type_info& type_info)
         {
-            constexpr bool is_size_compatible = type_info.size <= size_v;
-            constexpr bool is_alignment_compatible = align_v % type_info.alignment == 0;
-            return is_size_compatible and is_alignment_compatible;
+            return type_info.size <= size_v and align_v % type_info.alignment == 0;
         }
 
       private:

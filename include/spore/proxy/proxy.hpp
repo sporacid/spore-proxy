@@ -178,8 +178,8 @@ namespace spore
     using view_proxy = proxy<std::remove_const_t<std::remove_volatile_t<forward_facade_t>>, proxy_storage_non_owning, proxy_pointer_semantics<forward_facade_t>>;
 
     template <typename forward_facade_t>
-        requires any_proxy_facade<std::decay_t<forward_facade_t>>
-    using forward_proxy = proxy<std::decay_t<forward_facade_t>, proxy_storage_non_owning, proxy_forward_semantics<forward_facade_t>>;
+        requires any_proxy_facade<std::decay_t<forward_facade_t>> and std::is_reference_v<forward_facade_t>
+    using forward_proxy = proxy<std::decay_t<forward_facade_t>, proxy_storage_non_owning, proxy_reference_semantics<forward_facade_t>>;
 
     namespace proxies
     {
@@ -286,6 +286,13 @@ namespace spore
             noexcept(std::is_nothrow_constructible_v<forward_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
         {
             return forward_proxy<const facade_t&> {std::in_place_type<value_t>, value};
+        }
+
+        template <any_proxy_facade facade_t, typename value_t>
+        constexpr forward_proxy<const facade_t&&> make_forward(const value_t&& value)
+            noexcept(std::is_nothrow_constructible_v<forward_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
+        {
+            return forward_proxy<const facade_t&&> {std::in_place_type<value_t>, std::move(value)};
         }
     }
 }

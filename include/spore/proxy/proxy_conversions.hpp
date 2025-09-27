@@ -28,12 +28,96 @@ namespace spore
             static constexpr bool can_copy = false;
             static constexpr bool can_move = false;
         };
+
+        template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
+        struct semantics_conversion_matrix
+        {
+            using value_t = proxy_value_semantics<facade_t>;
+            using pointer_t = proxy_pointer_semantics<facade_t>;
+            using const_pointer_t = proxy_pointer_semantics<const facade_t>;
+            using reference_t = proxy_reference_semantics<facade_t&>;
+            using temp_reference_t = proxy_reference_semantics<facade_t&&>;
+            using const_reference_t = proxy_reference_semantics<const facade_t&>;
+            using const_temp_reference_t = proxy_reference_semantics<const facade_t&&>;
+
+            using other_value_t = proxy_value_semantics<other_facade_t>;
+            using other_pointer_t = proxy_pointer_semantics<other_facade_t>;
+            using other_const_pointer_t = proxy_pointer_semantics<const other_facade_t>;
+            using other_reference_t = proxy_reference_semantics<other_facade_t&>;
+            using other_temp_reference_t = proxy_reference_semantics<other_facade_t&&>;
+            using other_const_reference_t = proxy_reference_semantics<const other_facade_t&>;
+            using other_const_temp_reference_t = proxy_reference_semantics<const other_facade_t&&>;
+
+            template <any_proxy_semantics, any_proxy_semantics>
+            static constexpr disable_copy_and_move traits;
+
+            // clang-format off
+
+            // value semantics conversions
+
+            template <> constexpr enable_copy_and_move traits<value_t, other_value_t>;
+
+            template <> constexpr enable_copy traits<value_t, other_pointer_t>;
+            template <> constexpr enable_copy traits<value_t, other_const_pointer_t>;
+
+            template <> constexpr enable_copy traits<value_t, other_reference_t>;
+            template <> constexpr enable_copy traits<value_t, other_const_reference_t>;
+            template <> constexpr enable_copy_and_move traits<value_t, other_temp_reference_t>;
+            template <> constexpr enable_copy_and_move traits<value_t, other_const_temp_reference_t>;
+
+            // pointer semantics conversions
+
+            template <> constexpr enable_copy traits<pointer_t, other_pointer_t>;
+            template <> constexpr enable_copy traits<const_pointer_t, other_const_pointer_t>;
+            template <> constexpr enable_copy traits<const_pointer_t, other_pointer_t>;
+
+            template <> constexpr enable_copy_and_move traits<pointer_t, other_value_t>;
+            template <> constexpr enable_copy_and_move traits<const_pointer_t, other_value_t>;
+
+            template <> constexpr enable_copy traits<pointer_t, other_reference_t>;
+            template <> constexpr enable_copy traits<pointer_t, other_const_reference_t>;
+            template <> constexpr enable_copy_and_move traits<pointer_t, other_temp_reference_t>;
+            template <> constexpr enable_copy_and_move traits<pointer_t, other_const_temp_reference_t>;
+
+            // reference semantics conversions
+
+            template <> constexpr enable_copy traits<reference_t, other_reference_t>;
+            template <> constexpr enable_copy traits<reference_t, other_const_reference_t>;
+            template <> constexpr enable_copy_and_move traits<reference_t, other_temp_reference_t>;
+            template <> constexpr enable_copy_and_move traits<reference_t, other_const_temp_reference_t>;
+
+            template <> constexpr enable_copy traits<temp_reference_t, other_reference_t>;
+            template <> constexpr enable_copy traits<temp_reference_t, other_const_reference_t>;
+            template <> constexpr enable_copy_and_move traits<temp_reference_t, other_temp_reference_t>;
+            template <> constexpr enable_copy_and_move traits<temp_reference_t, other_const_temp_reference_t>;
+
+            template <> constexpr enable_copy_and_move traits<reference_t, other_value_t>;
+            template <> constexpr enable_copy traits<reference_t, other_pointer_t>;
+            template <> constexpr enable_copy traits<reference_t, other_const_pointer_t>;
+
+            template <> constexpr enable_copy_and_move traits<temp_reference_t, other_value_t>;
+            template <> constexpr enable_copy traits<temp_reference_t, other_pointer_t>;
+            template <> constexpr enable_copy traits<temp_reference_t, other_const_pointer_t>;
+
+            //clang-format on
+        };
     }
 
     template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
     struct proxy;
 
     // clang-format off
+
+    template <any_proxy_semantics semantics_t, any_proxy_semantics other_semantics_t>
+    struct proxy_semantics_conversion
+    {
+        using conversion_matrix_t = proxies::detail::semantics_conversion_matrix<typename semantics_t::facade_type, typename other_semantics_t::facade_type>;
+        static constexpr bool can_copy = conversion_matrix_t::template traits<semantics_t, other_semantics_t>.can_copy;
+        static constexpr bool can_move = conversion_matrix_t::template traits<semantics_t, other_semantics_t>.can_move;
+    };
+
+#if 0
+
 
     template <any_proxy_semantics semantics_t, any_proxy_semantics other_semantics_t>
     struct proxy_semantics_conversion : proxies::detail::disable_copy_and_move {};
@@ -44,6 +128,16 @@ namespace spore
     struct proxy_semantics_conversion<
         proxy_value_semantics<facade_t>,
         proxy_value_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
+
+    template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
+    struct proxy_semantics_conversion<
+        proxy_value_semantics<facade_t>,
+        proxy_pointer_semantics<other_facade_t>> : proxies::detail::enable_copy {};
+
+    template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
+    struct proxy_semantics_conversion<
+        proxy_value_semantics<facade_t>,
+        proxy_pointer_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
 
     // pointer semantics conversions
 
@@ -72,143 +166,144 @@ namespace spore
         proxy_pointer_semantics<const facade_t>,
         proxy_value_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
 
-    // forward semantics conversions
+    // reference semantics conversions
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t>,
-        proxy_forward_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
+        proxy_reference_semantics<facade_t>,
+        proxy_reference_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t>,
-        proxy_forward_semantics<other_facade_t&>> : proxies::detail::enable_copy {};
+        proxy_reference_semantics<facade_t>,
+        proxy_reference_semantics<other_facade_t&>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t>,
-        proxy_forward_semantics<other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
+        proxy_reference_semantics<facade_t>,
+        proxy_reference_semantics<other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t>,
-        proxy_forward_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
+        proxy_reference_semantics<facade_t>,
+        proxy_reference_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t>,
-        proxy_forward_semantics<const other_facade_t&>> : proxies::detail::enable_copy {};
+        proxy_reference_semantics<facade_t>,
+        proxy_reference_semantics<const other_facade_t&>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t>,
-        proxy_forward_semantics<const other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
+        proxy_reference_semantics<facade_t>,
+        proxy_reference_semantics<const other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t>,
+        proxy_reference_semantics<facade_t>,
         proxy_pointer_semantics<other_facade_t>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t>,
+        proxy_reference_semantics<facade_t>,
         proxy_pointer_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t>,
+        proxy_reference_semantics<facade_t>,
         proxy_value_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&>,
-        proxy_forward_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
+        proxy_reference_semantics<facade_t&>,
+        proxy_reference_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&>,
-        proxy_forward_semantics<other_facade_t&>> : proxies::detail::enable_copy {};
+        proxy_reference_semantics<facade_t&>,
+        proxy_reference_semantics<other_facade_t&>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&>,
-        proxy_forward_semantics<other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
+        proxy_reference_semantics<facade_t&>,
+        proxy_reference_semantics<other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&>,
-        proxy_forward_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
+        proxy_reference_semantics<facade_t&>,
+        proxy_reference_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&>,
-        proxy_forward_semantics<const other_facade_t&>> : proxies::detail::enable_copy {};
+        proxy_reference_semantics<facade_t&>,
+        proxy_reference_semantics<const other_facade_t&>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&>,
-        proxy_forward_semantics<const other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
+        proxy_reference_semantics<facade_t&>,
+        proxy_reference_semantics<const other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&>,
+        proxy_reference_semantics<facade_t&>,
         proxy_pointer_semantics<other_facade_t>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&>,
+        proxy_reference_semantics<facade_t&>,
         proxy_pointer_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&>,
+        proxy_reference_semantics<facade_t&>,
         proxy_value_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&&>,
-        proxy_forward_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
+        proxy_reference_semantics<facade_t&&>,
+        proxy_reference_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&&>,
-        proxy_forward_semantics<other_facade_t&>> : proxies::detail::enable_copy {};
+        proxy_reference_semantics<facade_t&&>,
+        proxy_reference_semantics<other_facade_t&>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&&>,
-        proxy_forward_semantics<other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
+        proxy_reference_semantics<facade_t&&>,
+        proxy_reference_semantics<other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&&>,
-        proxy_forward_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
+        proxy_reference_semantics<facade_t&&>,
+        proxy_reference_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&&>,
-        proxy_forward_semantics<const other_facade_t&>> : proxies::detail::enable_copy {};
+        proxy_reference_semantics<facade_t&&>,
+        proxy_reference_semantics<const other_facade_t&>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&&>,
-        proxy_forward_semantics<const other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
+        proxy_reference_semantics<facade_t&&>,
+        proxy_reference_semantics<const other_facade_t&&>> : proxies::detail::enable_copy_and_move {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&&>,
+        proxy_reference_semantics<facade_t&&>,
         proxy_pointer_semantics<other_facade_t>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&&>,
+        proxy_reference_semantics<facade_t&&>,
         proxy_pointer_semantics<const other_facade_t>> : proxies::detail::enable_copy {};
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_semantics_conversion<
-        proxy_forward_semantics<facade_t&&>,
+        proxy_reference_semantics<facade_t&&>,
         proxy_value_semantics<other_facade_t>> : proxies::detail::enable_copy_and_move {};
 
+#endif
     // facade conversions
 
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>

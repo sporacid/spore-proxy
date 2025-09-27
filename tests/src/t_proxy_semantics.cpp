@@ -149,21 +149,21 @@ TEST_CASE("spore::proxy::semantics", "[spore::proxy][spore::proxy::semantics]")
         }
     }
 
-    SECTION("forward semantics")
+    SECTION("reference semantics")
     {
-        struct lvalue_impl : proxy_forward_semantics<proxies::tests::semantics::facade&>
+        struct lvalue_impl : proxy_reference_semantics<proxies::tests::semantics::facade&>
         {
         };
 
-        struct rvalue_impl : proxy_forward_semantics<proxies::tests::semantics::facade&&>
+        struct rvalue_impl : proxy_reference_semantics<proxies::tests::semantics::facade&&>
         {
         };
 
-        struct const_lvalue_impl : proxy_forward_semantics<const proxies::tests::semantics::facade&>
+        struct const_lvalue_impl : proxy_reference_semantics<const proxies::tests::semantics::facade&>
         {
         };
 
-        struct const_rvalue_impl : proxy_forward_semantics<const proxies::tests::semantics::facade&&>
+        struct const_rvalue_impl : proxy_reference_semantics<const proxies::tests::semantics::facade&&>
         {
         };
 

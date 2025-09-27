@@ -10,14 +10,18 @@ namespace spore
     {
         // facade_t should be a non-cv qualified, non ref-qualified type
         //   e.g. int
+
+        using facade_type = facade_t;
     };
 
     template <typename facade_t>
-        requires(any_proxy_facade<std::remove_const_t<std::remove_volatile_t<facade_t>>>)
+        requires any_proxy_facade<std::remove_const_t<std::remove_volatile_t<facade_t>>>
     struct SPORE_PROXY_ENFORCE_EBCO proxy_pointer_semantics : private std::remove_const_t<std::remove_volatile_t<facade_t>>
     {
         // facade_t should be a cv-qualified type, non ref-qualified type
         //   e.g. int, const int, const volatile int
+
+        using facade_type = std::remove_const_t<std::remove_volatile_t<facade_t>>;
 
         static constexpr bool is_const = std::is_const_v<facade_t>;
 
@@ -40,11 +44,13 @@ namespace spore
     };
 
     template <typename facade_t>
-        requires(any_proxy_facade<std::decay_t<facade_t>>)
-    struct SPORE_PROXY_ENFORCE_EBCO proxy_forward_semantics : private std::decay_t<facade_t>
+        requires any_proxy_facade<std::decay_t<facade_t>> and std::is_reference_v<facade_t>
+    struct SPORE_PROXY_ENFORCE_EBCO proxy_reference_semantics : private std::decay_t<facade_t>
     {
         // facade_t should be a cv-qualified type, ref-qualified type
-        //   e.g. int, const int, int&, int&&, const int&, const int&&, const volatile int&
+        //   e.g. int&, int&&, const int&, const int&&, const volatile int&
+
+        using facade_type = std::decay_t<facade_t>;
 
         static constexpr bool is_const = std::is_const_v<std::remove_reference_t<facade_t>>;
 
@@ -81,7 +87,7 @@ namespace spore
         };
 
         template <typename facade_t>
-        struct is_proxy_semantics<proxy_forward_semantics<facade_t>> : std::true_type
+        struct is_proxy_semantics<proxy_reference_semantics<facade_t>> : std::true_type
         {
         };
     }

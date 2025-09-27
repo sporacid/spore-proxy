@@ -54,7 +54,10 @@ namespace spore
         std::is_same_v<semantics_t, std::decay_t<semantics_t>> and
         std::is_empty_v<semantics_t> and
         std::is_default_constructible_v<semantics_t> and
-        proxies::detail::is_proxy_semantics<semantics_t>::value;
+        proxies::detail::is_proxy_semantics<semantics_t>::value and
+        requires {
+            typename semantics_t::facade_type;
+        };
 
     namespace proxies::detail
     {
