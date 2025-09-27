@@ -55,7 +55,7 @@ struct impl
 
 int main()
 {
-    unique_proxy<facade> p = proxies::make_unique<facade, impl>();
+    value_proxy<facade> p = proxies::make_value<facade, impl>();
     p.act();
 
     return 0;
