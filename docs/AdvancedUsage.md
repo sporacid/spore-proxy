@@ -16,7 +16,8 @@ allows to register template instantiation without any issues!
 
 # 🪞 Proxies
 
-Proxies are the main 
+Proxies are the main type to interact with. It encloses a facade, a storage and a semantics type and is constructed from
+a concrete implementation.
 
 # 🏛️ Facades
 
@@ -198,4 +199,83 @@ void function(forward_proxy<const facade&>&& p)
 
 # 🔃 Conversions
 
+Proxies can convert between one another depending on the proxy's types. For more detail on which conversions are
+available, you can have a look at [this file](../include/spore/proxy/proxy_conversions.hpp). The most common conversion
+would be from a derived facade to a base facade, or from any proxy to a proxy view.
+
+```cpp
+value_proxy<facade> proxy;
+
+// Moves the implementation into a proxy of base facade
+value_proxy<base> base = std::move(proxy);
+
+// Creates a non-owning proxy that points to the same object as proxy, with pointer semantics
+view_proxy<facade> view = proxy;
+
+// Creates a non-owning proxy that points to the same object as proxy, with reference semantics
+forward_proxy<facade&> = proxy;
+```
+
 # ⏱️ Benchmarks
+
+[This project](../benchmarks/src/main.cpp) benchmarks this implementation against other popular libraries and more
+typical C++ feature such as virtual interfaces and CRTP.
+
+Here are the results of these benchmarks, in release mode.
+
+## Test
+
+The test does exactly the same thing across all implementations. It does a 1,000 warmup iterations, followed by
+100,000,000 timed iterations. `std::chrono::steady_clock` was used for timings. The function being dispatched is this:
+
+```cpp
+std::size_t do_work() noexcept
+{
+    std::size_t result = 0;
+
+    for (std::size_t index = 0; index < 10; index++)
+    {
+        result += index;
+    }
+
+    return result;
+}
+```
+
+## Hardware
+
+The tests were done on this hardware:
+
+- Intel(R) Core(TM) i9-12900K, 3200 Mhz, 16 Core(s), 24 Logical Processor(s)
+- 32 GB RAM
+- Windows 11 Version 10.0.26100
+
+The executable was built with these settings:
+
+- Release mode
+- Clang-cl compiler
+- Maximum optimization and inlining settings ([exact compile options here](../benchmarks/CMakeLists.txt))
+
+## Results
+
+| Name                    | Seconds |
+|-------------------------|---------|
+| virtual                 | 0.9700  |
+| non-virtual             | 0.7611  |
+| crtp                    | 0.7698  |
+| functional              | 0.9339  |
+| microsoft               | 0.9615  |
+| avask                   | 0.9790  |
+| dyno                    | 0.9429  |
+| spore static (inline)   | 0.9229  |
+| spore static (value)    | 0.9307  |
+| spore static (unique)   | 0.9275  |
+| spore static (shared)   | 0.9033  |
+| spore static (view)     | 0.8901  |
+| spore static (forward)  | 0.8869  |
+| spore dynamic (inline)  | 0.9400  |
+| spore dynamic (value)   | 0.9274  |
+| spore dynamic (unique)  | 0.9238  |
+| spore dynamic (shared)  | 0.9241  |
+| spore dynamic (view)    | 0.8951  |
+| spore dynamic (forward) | 0.9179  |

@@ -342,7 +342,7 @@ int main()
     {
         const benchmarks::spore::impl impl;
         view_proxy facade = proxies::make_view<benchmarks::spore::static_::facade>(impl);
-        benchmark.template operator()<work_pointer>("spore static (non-owning)", facade);
+        benchmark.template operator()<work_pointer>("spore static (view)", facade);
     }
 
     {
@@ -374,7 +374,7 @@ int main()
     {
         const benchmarks::spore::impl impl;
         view_proxy facade = proxies::make_view<benchmarks::spore::dynamic::facade>(impl);
-        benchmark.template operator()<work_pointer>("spore dynamic (non-owning)", facade);
+        benchmark.template operator()<work_pointer>("spore dynamic (view)", facade);
     }
 
     {
