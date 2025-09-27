@@ -1,6 +1,7 @@
 #include "catch2/catch_all.hpp"
 
 #include "spore/proxy/proxy.hpp"
+#include "spore/proxy/tests/t_conversions.hpp"
 #include "spore/proxy/tests/t_dispatch.hpp"
 #include "spore/proxy/tests/t_templates.hpp"
 #include "spore/proxy/tests/t_thread.hpp"
@@ -14,48 +15,53 @@
 #    define SPORE_PROXY_TEST_THREAD_COUNT 24
 #endif
 
-namespace spore::proxies::tests::static_asserts
+namespace spore::proxies::tests
 {
-    // clang-format off
+    namespace static_asserts
+    {
+        // clang-format off
     struct facade : proxy_facade<facade> {};
     struct impl {};
-    // clang-format on
+        // clang-format on
 
-    static_assert(std::is_move_constructible_v<shared_proxy<facade>>);
-    static_assert(std::is_copy_constructible_v<shared_proxy<facade>>);
-    static_assert(std::is_move_assignable_v<shared_proxy<facade>>);
-    static_assert(std::is_copy_assignable_v<shared_proxy<facade>>);
+        static_assert(std::is_move_constructible_v<shared_proxy<facade>>);
+        static_assert(std::is_copy_constructible_v<shared_proxy<facade>>);
+        static_assert(std::is_move_assignable_v<shared_proxy<facade>>);
+        static_assert(std::is_copy_assignable_v<shared_proxy<facade>>);
 
-    static_assert(std::is_move_constructible_v<unique_proxy<facade>>);
-    static_assert(not std::is_copy_constructible_v<unique_proxy<facade>>);
-    static_assert(std::is_move_assignable_v<unique_proxy<facade>>);
-    static_assert(not std::is_copy_assignable_v<unique_proxy<facade>>);
+        static_assert(std::is_move_constructible_v<unique_proxy<facade>>);
+        static_assert(not std::is_copy_constructible_v<unique_proxy<facade>>);
+        static_assert(std::is_move_assignable_v<unique_proxy<facade>>);
+        static_assert(not std::is_copy_assignable_v<unique_proxy<facade>>);
 
-    static_assert(std::is_move_constructible_v<value_proxy<facade>>);
-    static_assert(std::is_copy_constructible_v<value_proxy<facade>>);
-    static_assert(std::is_move_assignable_v<value_proxy<facade>>);
-    static_assert(std::is_copy_assignable_v<value_proxy<facade>>);
+        static_assert(std::is_move_constructible_v<value_proxy<facade>>);
+        static_assert(std::is_copy_constructible_v<value_proxy<facade>>);
+        static_assert(std::is_move_assignable_v<value_proxy<facade>>);
+        static_assert(std::is_copy_assignable_v<value_proxy<facade>>);
 
-    static_assert(std::is_move_constructible_v<inline_proxy<facade, impl>>);
-    static_assert(std::is_copy_constructible_v<inline_proxy<facade, impl>>);
-    static_assert(std::is_move_assignable_v<inline_proxy<facade, impl>>);
-    static_assert(std::is_copy_assignable_v<inline_proxy<facade, impl>>);
+        static_assert(std::is_move_constructible_v<inline_proxy<facade, impl>>);
+        static_assert(std::is_copy_constructible_v<inline_proxy<facade, impl>>);
+        static_assert(std::is_move_assignable_v<inline_proxy<facade, impl>>);
+        static_assert(std::is_copy_assignable_v<inline_proxy<facade, impl>>);
 
 #define SPORE_PROXY_TESTS_STATIC_ASSERTS(Proxy, Facade)         \
     static_assert(std::is_move_constructible_v<Proxy<Facade>>); \
     static_assert(std::is_copy_constructible_v<Proxy<Facade>>); \
     static_assert(std::is_move_assignable_v<Proxy<Facade>>);    \
-    static_assert(std::is_copy_assignable_v<Proxy<Facade>>);
+    static_assert(std::is_copy_assignable_v<Proxy<Facade>>)
 
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(view_proxy, facade);
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(view_proxy, const facade);
+        SPORE_PROXY_TESTS_STATIC_ASSERTS(view_proxy, facade);
+        SPORE_PROXY_TESTS_STATIC_ASSERTS(view_proxy, const facade);
 
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade);
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade&);
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade&&);
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, const facade);
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, const facade&);
-    SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, const facade&&);
+        SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade);
+        SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade&);
+        SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, facade&&);
+        SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, const facade);
+        SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, const facade&);
+        SPORE_PROXY_TESTS_STATIC_ASSERTS(forward_proxy, const facade&&);
+
+#undef SPORE_PROXY_TESTS_STATIC_ASSERTS
+    }
 }
 
 TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_static<>), (spore::proxy_dispatch_dynamic<>) )
@@ -64,7 +70,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
     using dispatch_type = TestType;
 
-    SECTION("facade basics")
+    SECTION("proxy basics")
     {
         struct facade : proxy_facade<facade>
         {
@@ -93,6 +99,66 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         p.act();
 
         REQUIRE(flag);
+    }
+
+    SECTION("proxy conversions")
+    {
+        // clang-format off
+        struct base : proxy_facade<base> {};
+        struct facade : proxy_facade<facade, base> {};
+        struct impl {};
+        // clang-format on
+
+        {
+            using namespace proxies::tests::conversions;
+
+            // value semantics conversion
+
+            static_assert_conversion<value_proxy<facade>, value_proxy<facade>, should_copy, should_move>();
+            static_assert_conversion<value_proxy<base>, value_proxy<facade>, should_copy, should_move>();
+
+            // pointer semantics conversion
+
+            static_assert_conversion<view_proxy<facade>, view_proxy<facade>, should_copy, should_not_move>();
+            static_assert_conversion<view_proxy<facade>, view_proxy<const facade>, should_not_copy, should_not_move>();
+            static_assert_conversion<view_proxy<const facade>, view_proxy<facade>, should_copy, should_not_move>();
+            static_assert_conversion<view_proxy<const facade>, view_proxy<const facade>, should_copy, should_not_move>();
+
+            static_assert_conversion<view_proxy<facade>, value_proxy<facade>, should_copy, should_not_move>();
+            static_assert_conversion<view_proxy<const facade>, value_proxy<facade>, should_copy, should_not_move>();
+
+            //            static_assert(proxy_conversion<view_proxy<facade>, value_proxy<facade>>::can_copy);
+            //            static_assert(proxy_conversion<view_proxy<facade>, value_proxy<base>>::can_copy);
+            //
+            //            static_assert(not proxy_conversion<view_proxy<const facade>, value_proxy<facade>>::can_copy);
+            //            static_assert(not proxy_conversion<view_proxy<const facade>, value_proxy<base>>::can_copy);
+            //            static_assert(not proxy_conversion<view_proxy<const facade>, view_proxy<const facade>>::can_copy);
+        }
+
+        SECTION("value facade to view facade")
+        {
+            value_proxy p1 = proxies::make_value<facade, impl>();
+            view_proxy<facade> p2 = p1;
+
+            REQUIRE(p1.ptr() == p2.ptr());
+        }
+
+        SECTION("value facade to view base")
+        {
+            value_proxy p1 = proxies::make_value<facade, impl>();
+            view_proxy<base> p2 = p1;
+
+            REQUIRE(p1.ptr() == p2.ptr());
+        }
+
+        SECTION("value facade to value base")
+        {
+            value_proxy p1 = proxies::make_value<facade, impl>();
+            value_proxy<base> p2 = p1;
+
+            REQUIRE(p2.ptr() != nullptr);
+            REQUIRE(p2.ptr() != p1.ptr());
+        }
     }
 
     SECTION("dispatch or throw")

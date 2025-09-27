@@ -11,8 +11,11 @@
 namespace spore
 {
     template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
-    struct SPORE_PROXY_ENFORCE_EBCO proxy final : semantics_t, private proxy_base
+    struct SPORE_PROXY_ENFORCE_EBCO proxy final : semantics_t, proxy_base
     {
+        template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
+        friend struct proxy;
+
         template <typename value_t, typename... args_t>
         constexpr explicit proxy(std::in_place_type_t<value_t> type, args_t&&... args)
             noexcept(std::is_nothrow_constructible_v<storage_t, std::in_place_type_t<value_t>, args_t&&...>)
@@ -171,8 +174,8 @@ namespace spore
     using shared_proxy_mt = proxy<facade_t, proxy_storage_shared<std::atomic<std::uint32_t>>, proxy_pointer_semantics<facade_t>>;
 
     template <typename forward_facade_t>
-        requires any_proxy_facade<std::remove_reference_t<forward_facade_t>>
-    using view_proxy = proxy<std::decay_t<forward_facade_t>, proxy_storage_non_owning, proxy_pointer_semantics<forward_facade_t>>;
+        requires any_proxy_facade<std::remove_const_t<std::remove_volatile_t<forward_facade_t>>>
+    using view_proxy = proxy<std::remove_const_t<std::remove_volatile_t<forward_facade_t>>, proxy_storage_non_owning, proxy_pointer_semantics<forward_facade_t>>;
 
     template <typename forward_facade_t>
         requires any_proxy_facade<std::decay_t<forward_facade_t>>
@@ -286,5 +289,3 @@ namespace spore
         }
     }
 }
-
-#include "spore/proxy/proxy_conversions.inl"

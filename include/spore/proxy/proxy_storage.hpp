@@ -82,6 +82,8 @@ namespace spore
     template <typename counter_t>
     struct proxy_storage_shared
     {
+        // TODO @sporacid fix shared storage being different from others with block dispatch.
+
         proxy_storage_shared()
             : _dispatch(nullptr),
               _ptr(nullptr)
@@ -192,6 +194,38 @@ namespace spore
         {
         }
 
+        template <typename storage_t>
+        constexpr explicit proxy_storage_unique(storage_t&& storage) noexcept
+            requires(any_proxy_storage<std::decay_t<storage_t>>)
+        {
+            _dispatch = storage.dispatch();
+
+            if (_dispatch != nullptr)
+            {
+                _ptr = _dispatch->allocate();
+
+                if constexpr (std::is_rvalue_reference_v<storage_t>)
+                {
+                    if constexpr (std::is_move_constructible_v<std::decay_t<storage_t>>)
+                    {
+                        _dispatch->move(_ptr, storage.ptr());
+                    }
+                    else
+                    {
+                        static_assert(std::is_copy_constructible_v<std::decay_t<storage_t>>);
+
+                        _dispatch->copy(_ptr, storage.ptr());
+                    }
+                }
+                else
+                {
+                    static_assert(std::is_copy_constructible_v<std::decay_t<storage_t>>);
+
+                    _dispatch->copy(_ptr, storage.ptr());
+                }
+            }
+        }
+
         template <typename value_t, typename... args_t>
         explicit proxy_storage_unique(std::in_place_type_t<value_t>, args_t&&... args) SPORE_PROXY_THROW_SPEC
         {
@@ -259,6 +293,38 @@ namespace spore
             : _dispatch(nullptr),
               _ptr(nullptr)
         {
+        }
+
+        template <typename storage_t>
+        constexpr explicit proxy_storage_value(storage_t&& storage) noexcept
+            requires(any_proxy_storage<std::decay_t<storage_t>>)
+        {
+            _dispatch = storage.dispatch();
+
+            if (_dispatch != nullptr)
+            {
+                _ptr = _dispatch->allocate();
+
+                if constexpr (std::is_rvalue_reference_v<storage_t>)
+                {
+                    if constexpr (std::is_move_constructible_v<std::decay_t<storage_t>>)
+                    {
+                        _dispatch->move(_ptr, storage.ptr());
+                    }
+                    else
+                    {
+                        static_assert(std::is_copy_constructible_v<std::decay_t<storage_t>>);
+
+                        _dispatch->copy(_ptr, storage.ptr());
+                    }
+                }
+                else
+                {
+                    static_assert(std::is_copy_constructible_v<std::decay_t<storage_t>>);
+
+                    _dispatch->copy(_ptr, storage.ptr());
+                }
+            }
         }
 
         template <typename value_t, typename... args_t>
@@ -377,6 +443,14 @@ namespace spore
             : _dispatch(nullptr),
               _ptr(nullptr)
         {
+        }
+
+        template <typename storage_t>
+        constexpr explicit proxy_storage_non_owning(storage_t&& storage) noexcept
+            requires(any_proxy_storage<std::decay_t<storage_t>>)
+        {
+            _dispatch = storage.dispatch();
+            _ptr = storage.ptr();
         }
 
         template <typename value_t>

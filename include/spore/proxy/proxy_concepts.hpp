@@ -8,12 +8,14 @@ namespace spore
     struct proxy_storage_dispatch;
 
     template <typename storage_t>
-    concept any_proxy_storage = requires(storage_t& storage) {
-        std::is_default_constructible_v<storage_t>;
-        { storage.ptr() } -> std::same_as<void*>;
-        { storage.reset() } -> std::same_as<void>;
-        { storage.dispatch() } -> std::same_as<const proxy_storage_dispatch*>;
-    };
+    concept any_proxy_storage =
+        std::is_same_v<storage_t, std::decay_t<storage_t>> and
+        std::is_default_constructible_v<storage_t> and
+        requires(storage_t& storage) {
+            { storage.ptr() } -> std::same_as<void*>;
+            { storage.reset() } -> std::same_as<void>;
+            { storage.dispatch() } -> std::same_as<const proxy_storage_dispatch*>;
+        };
 
     template <typename facade_t, typename... facades_t>
     struct proxy_facade;
@@ -40,19 +42,19 @@ namespace spore
         };
     }
 
-    template <typename value_t>
-    concept any_proxy_facade = requires {
-        std::is_empty_v<value_t>;
-        std::is_default_constructible_v<value_t>;
-        proxies::detail::is_proxy_facade<value_t>::value;
-    };
+    template <typename facade_t>
+    concept any_proxy_facade =
+        std::is_same_v<facade_t, std::decay_t<facade_t>> and
+        std::is_empty_v<facade_t> and
+        std::is_default_constructible_v<facade_t> and
+        proxies::detail::is_proxy_facade<facade_t>::value;
 
-    template <typename value_t>
-    concept any_proxy_semantics = requires {
-        std::is_empty_v<value_t>;
-        std::is_default_constructible_v<value_t>;
-        proxies::detail::is_proxy_semantics<value_t>::value;
-    };
+    template <typename semantics_t>
+    concept any_proxy_semantics =
+        std::is_same_v<semantics_t, std::decay_t<semantics_t>> and
+        std::is_empty_v<semantics_t> and
+        std::is_default_constructible_v<semantics_t> and
+        proxies::detail::is_proxy_semantics<semantics_t>::value;
 
     namespace proxies::detail
     {
@@ -62,6 +64,8 @@ namespace spore
         };
     }
 
-    template <typename value_t>
-    concept any_proxy = proxies::detail::is_proxy<value_t>::value;
+    template <typename proxy_t>
+    concept any_proxy =
+        std::is_same_v<proxy_t, std::decay_t<proxy_t>> and
+        proxies::detail::is_proxy<proxy_t>::value;
 }
