@@ -262,35 +262,35 @@ namespace spore
 
         template <any_proxy_facade facade_t, typename value_t>
         constexpr view_proxy<const facade_t> make_view(const value_t& value)
-            noexcept(std::is_nothrow_constructible_v<view_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
+            noexcept(std::is_nothrow_constructible_v<view_proxy<const facade_t>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
         {
             return view_proxy<const facade_t> {std::in_place_type<value_t>, value};
         }
 
         template <any_proxy_facade facade_t, typename value_t>
         constexpr forward_proxy<facade_t&> make_forward(value_t& value)
-            noexcept(std::is_nothrow_constructible_v<forward_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
+            noexcept(std::is_nothrow_constructible_v<forward_proxy<facade_t&>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
         {
             return forward_proxy<facade_t&> {std::in_place_type<value_t>, value};
         }
 
         template <any_proxy_facade facade_t, typename value_t>
         constexpr forward_proxy<facade_t&&> make_forward(value_t&& value)
-            noexcept(std::is_nothrow_constructible_v<forward_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, value_t&&>)
+            noexcept(std::is_nothrow_constructible_v<forward_proxy<facade_t&&>, std::in_place_type_t<std::decay_t<value_t>>, value_t&&>)
         {
             return forward_proxy<facade_t&&> {std::in_place_type<std::decay_t<value_t>>, std::move(value)};
         }
 
         template <any_proxy_facade facade_t, typename value_t>
         constexpr forward_proxy<const facade_t&> make_forward(const value_t& value)
-            noexcept(std::is_nothrow_constructible_v<forward_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
+            noexcept(std::is_nothrow_constructible_v<forward_proxy<const facade_t&>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
         {
             return forward_proxy<const facade_t&> {std::in_place_type<value_t>, value};
         }
 
         template <any_proxy_facade facade_t, typename value_t>
         constexpr forward_proxy<const facade_t&&> make_forward(const value_t&& value)
-            noexcept(std::is_nothrow_constructible_v<forward_proxy<facade_t>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
+            noexcept(std::is_nothrow_constructible_v<forward_proxy<const facade_t&&>, std::in_place_type_t<std::decay_t<value_t>>, const value_t&>)
         {
             return forward_proxy<const facade_t&&> {std::in_place_type<value_t>, std::move(value)};
         }

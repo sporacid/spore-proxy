@@ -1,5 +1,7 @@
 #include "catch2/catch_all.hpp"
 
+#define private public
+
 #include "spore/proxy/proxy.hpp"
 #include "spore/proxy/tests/t_conversions.hpp"
 #include "spore/proxy/tests/t_dispatch.hpp"
@@ -106,7 +108,6 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         struct facade : proxy_facade<facade, base> {};
         struct impl {};
         // clang-format on
-
         {
             using namespace proxies::tests::conversions;
 
@@ -135,21 +136,8 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
             // reference semantics conversions
 
-//            static_assert_conversion<forward_proxy<facade>, forward_proxy<facade>, copy::enabled, move::enabled>();
-//            static_assert_conversion<forward_proxy<facade>, forward_proxy<facade&>, copy::enabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<facade>, forward_proxy<facade&&>, copy::enabled, move::enabled>();
-//            static_assert_conversion<forward_proxy<facade>, forward_proxy<const facade>, copy::enabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<facade>, forward_proxy<const facade&>, copy::enabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<facade>, forward_proxy<const facade&&>, copy::enabled, move::enabled>();
-//            static_assert_conversion<forward_proxy<facade>, view_proxy<facade>, copy::enabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<facade>, view_proxy<const facade>, copy::enabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<facade>, value_proxy<facade>, copy::enabled, move::enabled>();
-//            static_assert_conversion<forward_proxy<base>, forward_proxy<base>, copy::enabled, move::enabled>();
-
-//            static_assert_conversion<forward_proxy<facade&>, forward_proxy<facade>, copy::enabled, move::enabled>();
             static_assert_conversion<forward_proxy<facade&>, forward_proxy<facade&>, copy::enabled, move::disabled>();
             static_assert_conversion<forward_proxy<facade&>, forward_proxy<facade&&>, copy::enabled, move::enabled>();
-//            static_assert_conversion<forward_proxy<facade&>, forward_proxy<const facade>, copy::enabled, move::disabled>();
             static_assert_conversion<forward_proxy<facade&>, forward_proxy<const facade&>, copy::enabled, move::disabled>();
             static_assert_conversion<forward_proxy<facade&>, forward_proxy<const facade&&>, copy::enabled, move::enabled>();
             static_assert_conversion<forward_proxy<facade&>, view_proxy<facade>, copy::enabled, move::disabled>();
@@ -157,10 +145,8 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             static_assert_conversion<forward_proxy<facade&>, value_proxy<facade>, copy::enabled, move::enabled>();
             static_assert_conversion<forward_proxy<base&>, forward_proxy<facade&>, copy::enabled, move::disabled>();
 
-//            static_assert_conversion<forward_proxy<facade&&>, forward_proxy<facade>, copy::enabled, move::enabled>();
             static_assert_conversion<forward_proxy<facade&&>, forward_proxy<facade&>, copy::enabled, move::disabled>();
             static_assert_conversion<forward_proxy<facade&&>, forward_proxy<facade&&>, copy::enabled, move::enabled>();
-//            static_assert_conversion<forward_proxy<facade&&>, forward_proxy<const facade>, copy::enabled, move::disabled>();
             static_assert_conversion<forward_proxy<facade&&>, forward_proxy<const facade&>, copy::enabled, move::disabled>();
             static_assert_conversion<forward_proxy<facade&&>, forward_proxy<const facade&&>, copy::enabled, move::enabled>();
             static_assert_conversion<forward_proxy<facade&&>, view_proxy<facade>, copy::enabled, move::disabled>();
@@ -168,21 +154,8 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             static_assert_conversion<forward_proxy<facade&&>, value_proxy<facade>, copy::enabled, move::enabled>();
             static_assert_conversion<forward_proxy<base&&>, forward_proxy<facade&&>, copy::enabled, move::enabled>();
 
-//            static_assert_conversion<forward_proxy<const facade>, forward_proxy<facade>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade>, forward_proxy<facade&>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade>, forward_proxy<facade&&>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade>, forward_proxy<const facade>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade>, forward_proxy<const facade&>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade>, forward_proxy<const facade&&>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade>, view_proxy<facade>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade>, view_proxy<const facade>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade>, value_proxy<facade>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const base>, forward_proxy<const facade>, copy::disabled, move::disabled>();
-
-//            static_assert_conversion<forward_proxy<const facade&>, forward_proxy<facade>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&>, forward_proxy<facade&>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&>, forward_proxy<facade&&>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade&>, forward_proxy<const facade>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&>, forward_proxy<const facade&>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&>, forward_proxy<const facade&&>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&>, view_proxy<facade>, copy::disabled, move::disabled>();
@@ -190,10 +163,8 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             static_assert_conversion<forward_proxy<const facade&>, value_proxy<facade>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const base&>, forward_proxy<const facade&>, copy::disabled, move::disabled>();
 
-//            static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<facade>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<facade&>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<facade&&>, copy::disabled, move::disabled>();
-//            static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<const facade>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<const facade&>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&&>, forward_proxy<const facade&&>, copy::disabled, move::disabled>();
             static_assert_conversion<forward_proxy<const facade&&>, view_proxy<facade>, copy::disabled, move::disabled>();
@@ -231,6 +202,16 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         {
             impl i;
             view_proxy p1 = proxies::make_view<facade>(i);
+            value_proxy<facade> p2 = p1;
+
+            REQUIRE(p2.ptr() != nullptr);
+            REQUIRE(p2.ptr() != p1.ptr());
+        }
+
+        SECTION("forward facade to value facade")
+        {
+            impl i;
+            forward_proxy p1 = proxies::make_forward<facade>(std::move(i));
             value_proxy<facade> p2 = p1;
 
             REQUIRE(p2.ptr() != nullptr);
