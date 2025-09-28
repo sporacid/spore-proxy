@@ -1,6 +1,37 @@
 # Table of Content
 
-- [How it works](#how-it-works)
+- [Table of Content](#table-of-content)
+- [⚙️ How it works](#-how-it-works)
+- [🪞 Proxies](#-proxies)
+    * [Proxy Types](#proxy-types)
+- [🏛️ Facades](#-facades)
+    * [Facade inheritance](#facade-inheritance)
+- [📨 Dispatching](#-dispatching)
+    * [Static Dispatcher](#static-dispatcher)
+    * [Dynamic Dispatcher](#dynamic-dispatcher)
+    * [Default Dispatcher](#default-dispatcher)
+    * [Overriding Dispatchers](#overriding-dispatchers)
+    * [Thread Safety](#thread-safety)
+    * [Template Dispatching](#template-dispatching)
+    * [Special dispatching](#special-dispatching)
+        + [Dispatch or Throw](#dispatch-or-throw)
+        + [Dispatch or Default](#dispatch-or-default)
+- [💾 Storages](#-storages)
+    * [Shared storage](#shared-storage)
+    * [Unique storage](#unique-storage)
+    * [Value storage](#value-storage)
+    * [Inline storage](#inline-storage)
+    * [SBO storage](#sbo-storage)
+    * [Chain storage](#chain-storage)
+- [🗣️ Semantics](#-semantics)
+    * [Value semantics](#value-semantics)
+    * [Pointer semantics](#pointer-semantics)
+    * [Reference semantics](#reference-semantics)
+- [🔃 Conversions](#-conversions)
+- [⏱️ Benchmarks](#-benchmarks)
+    * [Test](#test)
+    * [Hardware](#hardware)
+    * [Results](#results)
 
 ----
 
@@ -319,8 +350,6 @@ forward_proxy<facade&> = proxy;
 
 [This project](../benchmarks/src/main.cpp) benchmarks this implementation against other popular libraries and more
 typical C++ feature such as virtual interfaces and CRTP.
-
-Here are the results of these benchmarks, in release mode.
 
 ## Test
 
