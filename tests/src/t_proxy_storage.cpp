@@ -1,70 +1,20 @@
 #include "catch2/catch_all.hpp"
 
 #include "spore/proxy/proxy.hpp"
+#include "spore/proxy/tests/t_observable.hpp"
 
 TEST_CASE("spore::proxy::storage", "[spore::proxy][spore::proxy::storage]")
 {
     using namespace spore;
-
-    static bool dummy_copied = false;
-    static bool dummy_moved = false;
-    static bool dummy_destroyed = false;
-
-    struct flags
-    {
-        bool& copied = dummy_copied;
-        bool& moved = dummy_moved;
-        bool& destroyed = dummy_destroyed;
-    };
-
-    struct impl
-    {
-        flags f;
-
-        impl() = default;
-
-        impl(flags f)
-            : f(f)
-        {
-        }
-
-        impl(const impl& other) noexcept
-        {
-            f.copied = true;
-            other.f.copied = true;
-        }
-
-        impl(impl&& other) noexcept
-        {
-            f.moved = true;
-            other.f.moved = true;
-        }
-
-        impl& operator=(const impl& other) noexcept
-        {
-            f.copied = true;
-            other.f.copied = true;
-            return *this;
-        }
-
-        impl& operator=(impl&& other) noexcept
-        {
-            f.moved = true;
-            other.f.moved = true;
-            return *this;
-        }
-
-        ~impl() noexcept
-        {
-            f.destroyed = true;
-        }
-    };
+    using namespace spore::proxies::tests::observable;
 
     SECTION("shared storage")
     {
+        using proxy_storage_shared_t = proxy_storage_shared<std::uint32_t>;
+
         SECTION("in-place construction")
         {
-            proxy_storage_shared<std::uint32_t> s {std::in_place_type<impl>};
+            proxy_storage_shared_t s {std::in_place_type<impl>};
 
             REQUIRE(s.counter() == 1);
             REQUIRE(s.ptr() != nullptr);
@@ -75,8 +25,8 @@ TEST_CASE("spore::proxy::storage", "[spore::proxy][spore::proxy::storage]")
             bool copied = false;
             bool moved = false;
 
-            proxy_storage_shared<std::uint32_t> s1 {std::in_place_type<impl>, flags {.copied = copied, .moved = moved}};
-            proxy_storage_shared<std::uint32_t> s2 = s1;
+            proxy_storage_shared_t s1 {std::in_place_type<impl>, flags {.copied = copied, .moved = moved}};
+            proxy_storage_shared_t s2 = s1;
 
             REQUIRE(s1.ptr() == s2.ptr());
             REQUIRE(s1.counter() == 2);
@@ -98,11 +48,11 @@ TEST_CASE("spore::proxy::storage", "[spore::proxy][spore::proxy::storage]")
             bool copied = false;
             bool moved = false;
 
-            proxy_storage_shared<std::uint32_t> s1 {std::in_place_type<impl>, flags {.copied = copied, .moved = moved}};
+            proxy_storage_shared_t s1 {std::in_place_type<impl>, flags {.copied = copied, .moved = moved}};
 
             void* ptr = s1.ptr();
 
-            proxy_storage_shared<std::uint32_t> s2 = std::move(s1);
+            proxy_storage_shared_t s2 = std::move(s1);
 
             REQUIRE(s1.ptr() == nullptr);
             REQUIRE(s2.counter() == 1);
@@ -116,7 +66,7 @@ TEST_CASE("spore::proxy::storage", "[spore::proxy][spore::proxy::storage]")
         {
             bool destroyed = false;
 
-            proxy_storage_shared<std::uint32_t> s {std::in_place_type<impl>, flags {.destroyed = destroyed}};
+            proxy_storage_shared_t s {std::in_place_type<impl>, flags {.destroyed = destroyed}};
 
             s.reset();
 
