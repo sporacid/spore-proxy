@@ -104,18 +104,10 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
         // clang-format off
         struct base : proxy_facade<base> {};
         struct facade : proxy_facade<facade, base> {};
-        struct impl {
-            impl() = default;
-            impl(const impl&) {
-    std::ignore = 0;
-}
-            impl(impl&&) {
-
-    std::ignore = 0;
-
-}
-        };
+        struct impl {};
         // clang-format on
+
+        SECTION("static assertions")
         {
             using namespace proxies::tests::conversions;
 

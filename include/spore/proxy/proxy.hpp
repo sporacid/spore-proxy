@@ -10,9 +10,51 @@
 
 namespace spore
 {
+    namespace proxies::detail
+    {
+        template <typename proxy_t>
+        struct is_proxy_movable : std::false_type
+        {
+        };
+
+        template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
+        struct is_proxy_movable<proxy<facade_t, storage_t, semantics_t>> : proxies::detail::is_proxy_semantics_movable<semantics_t>
+        {
+        };
+
+        template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
+        struct is_proxy_movable<const proxy<facade_t, storage_t, semantics_t>> : proxies::detail::is_proxy_semantics_movable<const semantics_t>
+        {
+        };
+
+        template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
+        struct is_proxy_movable<proxy<facade_t, storage_t, semantics_t>&> : proxies::detail::is_proxy_semantics_movable<semantics_t&>
+        {
+        };
+
+        template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
+        struct is_proxy_movable<const proxy<facade_t, storage_t, semantics_t>&> : proxies::detail::is_proxy_semantics_movable<const semantics_t&>
+        {
+        };
+
+        template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
+        struct is_proxy_movable<proxy<facade_t, storage_t, semantics_t>&&> : proxies::detail::is_proxy_semantics_movable<semantics_t&&>
+        {
+        };
+
+        template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
+        struct is_proxy_movable<const proxy<facade_t, storage_t, semantics_t>&&> : proxies::detail::is_proxy_semantics_movable<const semantics_t&&>
+        {
+        };
+    }
+
     template <any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t>
     struct SPORE_PROXY_ENFORCE_EBCO proxy final : semantics_t, proxy_base
     {
+        using facade_type = facade_t;
+        using storage_type = storage_t;
+        using semantics_type = semantics_t;
+
         template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
         friend struct proxy;
 
@@ -49,6 +91,43 @@ namespace spore
             _ptr = _storage.ptr();
         }
 
+        template <typename other_proxy_t>
+        constexpr proxy(other_proxy_t&& other)
+            noexcept(std::is_nothrow_constructible_v<storage_t, typename std::decay_t<other_proxy_t>::storage_type>)
+            // clang-format off
+            requires(any_proxy<std::decay_t<other_proxy_t>> and (
+                     proxy_conversion<proxy, std::decay_t<other_proxy_t>>::can_copy or
+                     proxy_conversion<proxy, std::decay_t<other_proxy_t>>::can_move))
+            // clang-format on
+            : proxy_base(other.type_index())
+        {
+            using decay_other_proxy_t = std::decay_t<other_proxy_t>;
+
+            proxies::detail::add_facade<facade_t>();
+            proxies::detail::add_facade<typename decay_other_proxy_t::facade_type>();
+
+            if constexpr (proxy_conversion<proxy, decay_other_proxy_t>::can_move and proxies::detail::is_proxy_movable<other_proxy_t&&>::value)
+            {
+                if constexpr (std::is_const_v<std::remove_reference_t<other_proxy_t>>)
+                {
+                    _storage = storage_t {std::move(const_cast<typename decay_other_proxy_t::storage_type&>(other._storage))};
+                }
+                else
+                {
+                    _storage = storage_t {std::move(other._storage)};
+                }
+            }
+            else
+            {
+                static_assert(proxy_conversion<proxy, decay_other_proxy_t>::can_copy);
+
+                _storage = storage_t {other._storage};
+            }
+
+            _ptr = _storage.ptr();
+        }
+
+#if 0
         template <any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
         constexpr proxy(const proxy<other_facade_t, other_storage_t, other_semantics_t>& other)
             noexcept(std::is_nothrow_constructible_v<storage_t, const other_storage_t&>)
@@ -72,6 +151,7 @@ namespace spore
 
             _ptr = _storage.ptr();
         }
+#endif
 
         constexpr proxy(const proxy& other)
             noexcept(std::is_nothrow_copy_constructible_v<storage_t>)

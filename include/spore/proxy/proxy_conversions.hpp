@@ -94,7 +94,6 @@ namespace spore
 
             template <any_proxy_semantics semantics_t, any_proxy_semantics other_semantics_t>
             using traits = decltype(semantics_conversion_matrix::traits_impl(std::in_place_type<semantics_t>, std::in_place_type<other_semantics_t>));
-#undef CONVERSION
             // clang-format on
         };
     }
