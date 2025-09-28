@@ -5,6 +5,7 @@
 #include "spore/proxy/proxy.hpp"
 #include "spore/proxy/tests/t_conversions.hpp"
 #include "spore/proxy/tests/t_dispatch.hpp"
+#include "spore/proxy/tests/t_observable.hpp"
 #include "spore/proxy/tests/t_templates.hpp"
 #include "spore/proxy/tests/t_thread.hpp"
 #include "spore/proxy/tests/t_translation_unit.hpp"
@@ -22,8 +23,8 @@ namespace spore::proxies::tests
     namespace static_asserts
     {
         // clang-format off
-    struct facade : proxy_facade<facade> {};
-    struct impl {};
+        struct facade : proxy_facade<facade> {};
+        struct impl {};
         // clang-format on
 
         static_assert(std::is_move_constructible_v<shared_proxy<facade>>);
@@ -101,21 +102,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
     SECTION("proxy conversions")
     {
-        // clang-format off
-        struct base : proxy_facade<base> {};
-        struct facade : proxy_facade<facade, base> {};
-        struct impl {
-            impl() = default;
-            impl(const impl&) {
-    std::ignore = 0;
-}
-            impl(impl&&) {
-
-    std::ignore = 0;
-
-}
-        };
-        // clang-format on
+        SECTION("static assertions")
         {
             using namespace proxies::tests::conversions;
 
@@ -181,6 +168,8 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             static_assert_conversion<forward_proxy<const base&&>, forward_proxy<const facade&&>, copy::disabled, move::disabled>();
         }
 
+        using namespace proxies::tests::observable;
+
         SECTION("value facade to view facade")
         {
             value_proxy<facade> p1 = proxies::make_value<facade, impl>();
@@ -204,6 +193,28 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
             REQUIRE(p2.ptr() != nullptr);
             REQUIRE(p2.ptr() != p1.ptr());
+            REQUIRE(p1.as<impl>().f.copied);
+        }
+
+        SECTION("value facade to value facade copy")
+        {
+            value_proxy<facade> p1 = proxies::make_value<facade, impl>();
+            value_proxy<facade> p2 = p1;
+
+            REQUIRE(p2.ptr() != nullptr);
+            REQUIRE(p2.ptr() != p1.ptr());
+            REQUIRE(p1.as<impl>().f.copied);
+        }
+
+        SECTION("value facade to value facade move")
+        {
+            value_proxy<facade> p1 = proxies::make_value<facade, impl>();
+            value_proxy<facade> p2 = std::move(p1);
+
+            REQUIRE(p1.ptr() == nullptr);
+            REQUIRE(p2.ptr() != nullptr);
+            REQUIRE(p2.ptr() != p1.ptr());
+            REQUIRE(p2.as<impl>().f.moved);
         }
 
         SECTION("view facade to value facade")
@@ -214,6 +225,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
             REQUIRE(p2.ptr() != nullptr);
             REQUIRE(p2.ptr() != p1.ptr());
+            REQUIRE(i.f.copied);
         }
 
         SECTION("forward facade to value facade")
@@ -224,6 +236,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
             REQUIRE(p2.ptr() != nullptr);
             REQUIRE(p2.ptr() != p1.ptr());
+            REQUIRE(i.f.moved);
         }
     }
 

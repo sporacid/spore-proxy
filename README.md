@@ -1,8 +1,7 @@
 # 📦 Spore Proxy - Template-Friendly Runtime Polymorphism
 
 `spore-proxy` is a C++20, header-only, no-dependencies, type-erasure and runtime polymorphism library that allows
-blazing fast
-virtual template dispatching.
+blazing fast function and function template dispatching.
 
 ---
 

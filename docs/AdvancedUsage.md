@@ -110,7 +110,7 @@ one such array per mapping type, e.g.
 
 ```cpp
 template <typename mapping_t>
-static inline proxies::detail::dispatch_type<mapping_t> dispatches[size_v] {};
+static inline proxies::detail::dispatch_type<mapping_t> dispatches[size_v];
 ```
 
 The size limits therefore limits the number of implementations for a specific mapping. For example,
@@ -119,12 +119,12 @@ can use this dispatcher type when the number of implementation of a given facade
 
 ## Dynamic Dispatcher
 
-The dynamic dispatcher implementation, `proxy_dispatch_dynamic`, uses one `std::vector` to store dispatch functions.
+The dynamic dispatcher implementation, `proxy_dispatch_dynamic`, uses `std::vector` to store dispatch functions.
 There is one vector per mapping type, per-thread, to ensure thread safety without locks, e.g.
 
 ```cpp
 template <typename mapping_t>
-static inline thread_local std::vector<proxies::detail::dispatch_type<mapping_t>> dispatches {size_v};
+static inline thread_local std::vector<proxies::detail::dispatch_type<mapping_t>> dispatches;
 ```
 
 You can use this dispatcher type when the number of implementation of a given facade is unknown.
