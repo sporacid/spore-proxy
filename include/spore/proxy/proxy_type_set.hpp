@@ -12,7 +12,7 @@ namespace spore::proxies::detail
 
     namespace type_sets
     {
-#ifdef __GNUC__
+#if !defined(__clang__) && defined(__GNUC__)
 #    pragma GCC diagnostic push
 #    pragma GCC diagnostic ignored "-Wnon-template-friend"
 #endif
@@ -30,7 +30,7 @@ namespace spore::proxies::detail
                 return value_t {};
             }
         };
-#ifdef __GNUC__
+#if !defined(__clang__) && defined(__GNUC__)
 #    pragma GCC diagnostic pop
 #endif
 
