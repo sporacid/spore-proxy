@@ -3,6 +3,8 @@
 #include "spore/proxy/proxy_concepts.hpp"
 #include "spore/proxy/proxy_macros.hpp"
 
+#include <type_traits>
+
 namespace spore
 {
     template <any_proxy_facade facade_t>
@@ -88,6 +90,81 @@ namespace spore
 
         template <typename facade_t>
         struct is_proxy_semantics<proxy_reference_semantics<facade_t>> : std::true_type
+        {
+        };
+
+        template <typename semantics_t>
+        struct is_proxy_semantics_movable : std::false_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<proxy_value_semantics<facade_t>&&> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<proxy_value_semantics<const facade_t>&&> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<proxy_reference_semantics<facade_t&&>> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<const proxy_reference_semantics<facade_t&&>> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<proxy_reference_semantics<facade_t&&>&> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<const proxy_reference_semantics<facade_t&&>&> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<proxy_reference_semantics<facade_t&&>&&> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<const proxy_reference_semantics<facade_t&&>&&> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<proxy_reference_semantics<const facade_t&&>> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<const proxy_reference_semantics<const facade_t&&>> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<proxy_reference_semantics<const facade_t&&>&> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<const proxy_reference_semantics<const facade_t&&>&> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<proxy_reference_semantics<const facade_t&&>&&> : std::true_type
+        {
+        };
+
+        template <any_proxy_facade facade_t>
+        struct is_proxy_semantics_movable<const proxy_reference_semantics<const facade_t&&>&&> : std::true_type
         {
         };
     }

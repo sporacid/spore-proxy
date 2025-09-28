@@ -33,13 +33,13 @@ namespace spore
                     return static_cast<void*>(value);
                 },
                 .deallocate = [](void* ptr) noexcept {
-                    auto* value = static_cast<value_t*>(ptr);
+                    auto* value = std::launder(static_cast<value_t*>(ptr));
                     std::allocator<value_t>().deallocate(value, 1);
                 },
                 .destroy = [](void* ptr) noexcept {
                     if constexpr (std::is_destructible_v<value_t>)
                     {
-                        auto* value = static_cast<value_t*>(ptr);
+                        auto* value = std::launder(static_cast<value_t*>(ptr));
                         std::destroy_at(value);
                     }
                 },
@@ -50,8 +50,8 @@ namespace spore
                     }
                     else if constexpr (std::is_move_constructible_v<value_t>)
                     {
-                        auto* value = static_cast<value_t*>(ptr);
-                        auto* other_value = static_cast<value_t*>(other_ptr);
+                        auto* value = std::launder(static_cast<value_t*>(ptr));
+                        auto* other_value = std::launder(static_cast<value_t*>(other_ptr));
                         std::construct_at(value, std::move(*other_value));
                     }
                     else
@@ -66,13 +66,13 @@ namespace spore
                     }
                     else if constexpr (std::is_copy_constructible_v<value_t>)
                     {
-                        auto* value = static_cast<value_t*>(ptr);
-                        const auto* other_value = static_cast<const value_t*>(other_ptr);
+                        auto* value = std::launder(static_cast<value_t*>(ptr));
+                        const auto* other_value = std::launder(static_cast<const value_t*>(other_ptr));
                         std::construct_at(value, *other_value);
                     }
                     else
                     {
-                        throw std::runtime_error("not copyable");
+                        SPORE_PROXY_THROW("not copyable");
                     }
                 },
             };

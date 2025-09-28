@@ -94,7 +94,6 @@ namespace spore
 
             template <any_proxy_semantics semantics_t, any_proxy_semantics other_semantics_t>
             using traits = decltype(semantics_conversion_matrix::traits_impl(std::in_place_type<semantics_t>, std::in_place_type<other_semantics_t>));
-#undef CONVERSION
             // clang-format on
         };
     }
@@ -110,15 +109,14 @@ namespace spore
         static constexpr bool can_move = conversion_matrix_t::template traits<semantics_t, other_semantics_t>::can_move;
     };
 
-    // clang-format off
     template <any_proxy_facade facade_t, any_proxy_facade other_facade_t>
     struct proxy_facade_conversion
         : std::conditional_t<
-            std::derived_from<other_facade_t, facade_t>,
-            std::true_type,
-            std::false_type
-          > {};
-    // clang-format on
+              std::derived_from<other_facade_t, facade_t>,
+              std::true_type,
+              std::false_type>
+    {
+    };
 
     template <any_proxy_storage storage_t, any_proxy_storage other_storage_t>
     struct proxy_storage_conversion
@@ -126,8 +124,6 @@ namespace spore
         static constexpr bool can_copy = std::constructible_from<storage_t, const other_storage_t&>;
         static constexpr bool can_move = std::constructible_from<storage_t, other_storage_t&&>;
     };
-
-    // proxy conversions
 
     template <any_proxy proxy_t, any_proxy other_proxy_t>
     struct proxy_conversion : proxies::detail::disable_copy_and_move
@@ -137,17 +133,18 @@ namespace spore
     template <
         any_proxy_facade facade_t, any_proxy_storage storage_t, any_proxy_semantics semantics_t,
         any_proxy_facade other_facade_t, any_proxy_storage other_storage_t, any_proxy_semantics other_semantics_t>
-        requires(proxy_facade_conversion<facade_t, other_facade_t>::value)
-    struct proxy_conversion<proxy<facade_t, storage_t, semantics_t>, proxy<other_facade_t, other_storage_t, other_semantics_t>>
+    struct proxy_conversion<
+        proxy<facade_t, storage_t, semantics_t>,
+        proxy<other_facade_t, other_storage_t, other_semantics_t>>
     {
         static constexpr bool can_copy =
+            proxy_facade_conversion<facade_t, other_facade_t>::value and
             proxy_semantics_conversion<semantics_t, other_semantics_t>::can_copy and
             proxy_storage_conversion<storage_t, other_storage_t>::can_copy;
 
         static constexpr bool can_move =
+            proxy_facade_conversion<facade_t, other_facade_t>::value and
             proxy_semantics_conversion<semantics_t, other_semantics_t>::can_move and
             proxy_storage_conversion<storage_t, other_storage_t>::can_move;
     };
-
-    // clang-format on
 }
