@@ -195,9 +195,11 @@ namespace spore
                 }
             };
 
-            template <typename func_t, typename return_t>
+            template <typename func_t, typename default_func_t, typename return_t>
             struct dispatch_or_default
             {
+                static_assert(std::is_same_v<return_t, decltype(default_func_t {}())>);
+
                 template <typename... args_t>
                 constexpr return_t operator()(args_t&&... args) const noexcept(std::is_invocable_r_v<return_t, func_t, args_t&&...>)
                 {
@@ -205,10 +207,9 @@ namespace spore
                     {
                         return func_t {}(std::forward<args_t>(args)...);
                     }
-                    else if constexpr (not std::is_void_v<return_t>)
+                    else
                     {
-                        static_assert(std::is_default_constructible_v<return_t>);
-                        return return_t {};
+                        return default_func_t {}();
                     }
                 }
             };
@@ -337,11 +338,18 @@ namespace spore
                 proxies::detail::dispatch_or_throw<func_t, return_t> {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
         }
 
-        template <typename return_t = void, typename func_t, typename self_t, typename... args_t>
-        SPORE_PROXY_FORCE_INLINE constexpr return_t dispatch_or_default(const func_t&, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
+        template <typename return_t, typename func_t, typename default_func_t, typename self_t, typename... args_t>
+        SPORE_PROXY_FORCE_INLINE constexpr auto dispatch_or_default(const func_t&, const default_func_t&, self_t&& self, args_t&&... args) -> decltype(default_func_t {}()) SPORE_PROXY_THROW_SPEC
         {
-            return proxies::detail::dispatch_impl<return_t>(
-                proxies::detail::dispatch_or_default<func_t, return_t> {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
+            static_assert(std::is_empty_v<default_func_t>);
+            return proxies::detail::dispatch_impl<return_t>(proxies::detail::dispatch_or_default<func_t, default_func_t, return_t> {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
+        }
+
+        template <typename func_t, typename self_t, typename... args_t>
+        SPORE_PROXY_FORCE_INLINE constexpr void dispatch_or_default(const func_t& func, self_t&& self, args_t&&... args) SPORE_PROXY_THROW_SPEC
+        {
+            using default_func_t = decltype([] {});
+            return proxies::detail::dispatch_impl<void>(proxies::detail::dispatch_or_default<func_t, default_func_t, void> {}, std::forward<self_t>(self), std::forward<args_t>(args)...);
         }
     }
 }
