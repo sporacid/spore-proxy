@@ -64,7 +64,7 @@ namespace spore::proxies::tests::observable
         value_t& as()
         {
             constexpr auto f = [](auto& self) -> value_t& { return static_cast<value_t&>(self); };
-            return proxies::dispatch<value_t&>(f, *this);
+            return proxies::dispatch<value_t&>(*this, f);
         }
     };
 }

@@ -39,8 +39,7 @@ struct facade : proxy_facade<facade>
 {
     void act() const
     {
-        constexpr auto f = [](const auto& self) { self.act(); };
-        proxies::dispatch(f, *this);
+        proxies::dispatch(*this, [](const auto& self) { self.act(); });
     }
 };
 

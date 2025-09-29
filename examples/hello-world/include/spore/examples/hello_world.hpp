@@ -14,7 +14,7 @@ namespace spore::examples
                 return self.say_message(name);
             };
 
-            proxies::dispatch(func, *this, name);
+            proxies::dispatch(*this, name, func);
         }
     };
 

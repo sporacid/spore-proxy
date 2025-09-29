@@ -205,8 +205,8 @@ namespace spore::benchmarks
 
             std::size_t work(const std::size_t size) const noexcept
             {
-                constexpr auto func = [](auto& self, const std::size_t size) { return self.work(size); };
-                return proxies::dispatch<std::size_t>(func, *this, size);
+                constexpr auto func = [](const auto& self, const std::size_t size) { return self.work(size); };
+                return proxies::dispatch<std::size_t>(*this, size, func);
             }
         };
 

@@ -13,7 +13,7 @@ namespace spore::proxies::tests::templates
         std::size_t act() const
         {
             constexpr auto func = [](auto& self) { return self.template act<value_v>(); };
-            return proxies::dispatch<std::size_t>(func, *this);
+            return proxies::dispatch<std::size_t>(*this, func);
         }
     };
 

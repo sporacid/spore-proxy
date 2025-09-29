@@ -77,8 +77,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
             void act()
             {
-                constexpr auto func = [](auto& self) { self.act(); };
-                proxies::dispatch(func, *this);
+                proxies::dispatch(*this, [](auto& self) { self.act(); });
             }
         };
 
@@ -249,7 +248,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             void act() const
             {
                 constexpr auto func = []<proxies::tests::actable self_t>(const self_t& self) { self.act(); };
-                proxies::dispatch_or_throw(func, *this);
+                proxies::dispatch_or_throw(*this, func);
             }
         };
 
@@ -271,7 +270,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             int act() const
             {
                 constexpr auto func = []<proxies::tests::actable self_t>(const self_t& self) { self.act(); };
-                return proxies::dispatch_or_default<int>(func, *this);
+                return proxies::dispatch_or_default(*this, func, [] { return 0; });
             }
         };
 
@@ -281,9 +280,9 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         proxy p = proxies::make_value<facade, impl>();
 
-        int result = p.act();
+        const int result = p.act();
 
-        REQUIRE(result == int {});
+        REQUIRE(result == 0);
     }
 
     SECTION("dispatch forwarding")
@@ -295,7 +294,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
                 void act() &&
                 {
                     constexpr auto func = []<typename self_t>(self_t&& self) { static_assert(std::is_rvalue_reference_v<self_t&&>); };
-                    return proxies::dispatch(func, std::move(*this));
+                    return proxies::dispatch(std::move(*this), func);
                 }
             };
 
@@ -315,7 +314,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
                 void act() &
                 {
                     constexpr auto func = []<typename self_t>(self_t&& self) { static_assert(std::is_lvalue_reference_v<self_t>); };
-                    return proxies::dispatch(func, *this);
+                    return proxies::dispatch(*this, func);
                 }
             };
 
@@ -335,7 +334,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
                 void act() const
                 {
                     constexpr auto func = []<typename self_t>(self_t&& self) { static_assert(std::is_const_v<std::remove_reference_t<self_t>>); };
-                    return proxies::dispatch(func, *this);
+                    return proxies::dispatch(*this, func);
                 }
             };
 
@@ -356,7 +355,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             void func1()
             {
                 constexpr auto func = [](auto& self) { self.func1(); };
-                proxies::dispatch(func, *this);
+                proxies::dispatch(*this, func);
             }
         };
 
@@ -365,7 +364,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             void func2()
             {
                 constexpr auto func = [](auto& self) { self.func2(); };
-                proxies::dispatch(func, *this);
+                proxies::dispatch(*this, func);
             }
         };
 
@@ -434,7 +433,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
             void act()
             {
                 constexpr auto func = [](auto& self) { self.act(); };
-                proxies::dispatch(func, *this);
+                proxies::dispatch(*this, func);
             }
         };
 

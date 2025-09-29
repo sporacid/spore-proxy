@@ -75,7 +75,7 @@ struct facade : proxy_facade<facade>
     void act() const
     {
         constexpr auto f = [](const auto& self) { self.act(); };
-        proxies::dispatch(f, *this);
+        proxies::dispatch(*this, f);
     }
 };
 ```
@@ -171,7 +171,7 @@ struct facade : proxy_facade<facade>
     void act() const
     {
         constexpr auto f = [](const auto& self) { self.template act<value_t>(); };
-        proxies::dispatch(f, *this);
+        proxies::dispatch(*this, f);
     }
 };
 ```
@@ -194,7 +194,7 @@ struct facade : proxy_facade<facade>
     void act() const
     {
         constexpr auto f = []<actable self_t>(const self_t& self) { self.act(); };
-        proxies::dispatch_or_throw(f, *this);
+        proxies::dispatch_or_throw(*this. f);
     }
 };
 
@@ -227,7 +227,7 @@ struct facade : proxy_facade<facade>
     void act() const
     {
         constexpr auto f = []<actable self_t>(const self_t& self) { self.act(); };
-        proxies::dispatch_or_default(f, *this);
+        proxies::dispatch_or_default(*this, f);
     }
 };
 

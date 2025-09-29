@@ -11,14 +11,12 @@ namespace spore::proxies::tests::tu
 
         std::size_t some_work() const
         {
-            constexpr auto func = [](auto& self) { return self.some_work(); };
-            return proxies::dispatch<std::size_t>(func, *this);
+            return proxies::dispatch<std::size_t>(*this, [](auto& self) { return self.some_work(); });
         }
 
         std::size_t some_other_work() const
         {
-            constexpr auto func = [](auto& self) { return self.some_other_work(); };
-            return proxies::dispatch<std::size_t>(func, *this);
+            return proxies::dispatch<std::size_t>(*this, [](auto& self) { return self.some_other_work(); });
         }
     };
 
