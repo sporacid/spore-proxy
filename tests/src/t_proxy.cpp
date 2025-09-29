@@ -270,8 +270,8 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
             int act() const
             {
-                constexpr auto func = []<proxies::tests::actable self_t>(const self_t& self) { self.act(); };
-                return proxies::dispatch_or_default<int>(func, *this);
+                constexpr auto f = []<proxies::tests::actable self_t>(const self_t& self) { self.act(); };
+                return proxies::dispatch_or_default<int>(f, [] { return 42; }, *this);
             }
         };
 
@@ -283,7 +283,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         int result = p.act();
 
-        REQUIRE(result == int {});
+        REQUIRE(result == 42);
     }
 
     SECTION("dispatch forwarding")

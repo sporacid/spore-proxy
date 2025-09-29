@@ -229,11 +229,19 @@ struct facade : proxy_facade<facade>
         constexpr auto f = []<actable self_t>(const self_t& self) { self.act(); };
         proxies::dispatch_or_default(f, *this);
     }
+    
+    long act_and_return() const
+    {
+        constexpr auto f = []<actable self_t>(const self_t& self) { self.act_and_return(); };
+        constexpr auto d = [] { return 0; };
+        proxies::dispatch_or_default<long>(f, d, *this);
+    }
 };
 
 struct valid_impl
 {
     void act() const {}
+    long act_and_return() const { return 42; }
 };
 
 struct invalid_impl
@@ -242,6 +250,9 @@ struct invalid_impl
 
 proxies::make_value<facade>(valid_impl {}).act();   // ✅ ok
 proxies::make_value<facade>(invalid_impl {}).act(); // ✅ no-op
+
+proxies::make_value<facade>(valid_impl {}).act_and_return();   // ✅ ok -> 42
+proxies::make_value<facade>(invalid_impl {}).act_and_return(); // ✅ no-op -> 0
 ```
 
 # 💾 Storages
