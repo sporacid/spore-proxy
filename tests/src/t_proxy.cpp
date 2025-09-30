@@ -456,6 +456,7 @@ TEMPLATE_TEST_CASE("spore::proxy", "[spore::proxy]", (spore::proxy_dispatch_stat
 
         REQUIRE(0 == proxies::tests::tu::some_work(p));
         REQUIRE(1 == proxies::tests::tu::some_other_work(p));
+        REQUIRE(3 == proxies::tests::tu::some_template_work(p));
     }
 
     SECTION("facade across threads")

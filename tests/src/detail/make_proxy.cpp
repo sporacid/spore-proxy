@@ -13,6 +13,12 @@ namespace spore::proxies::tests::tu
         {
             return 1;
         }
+
+        template <std::size_t value_v>
+        std::size_t some_template_work() const
+        {
+            return value_v;
+        }
     };
 
     template <typename dispatch_t>

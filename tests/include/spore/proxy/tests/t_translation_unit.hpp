@@ -20,6 +20,13 @@ namespace spore::proxies::tests::tu
             constexpr auto func = [](auto& self) { return self.some_other_work(); };
             return proxies::dispatch<std::size_t>(func, *this);
         }
+
+        template <std::size_t value_v>
+        std::size_t some_template_work() const
+        {
+            constexpr auto func = [](auto& self) { return self.template some_template_work<value_v>(); };
+            return proxies::dispatch<std::size_t>(func, *this);
+        }
     };
 
     template struct facade<proxy_dispatch_dynamic<>>;
@@ -33,4 +40,7 @@ namespace spore::proxies::tests::tu
 
     template <typename dispatch_t>
     std::size_t some_other_work(const shared_proxy<facade<dispatch_t>>& proxy);
+
+    template <typename dispatch_t>
+    std::size_t some_template_work(const shared_proxy<facade<dispatch_t>>& proxy);
 }
