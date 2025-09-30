@@ -47,9 +47,6 @@ namespace spore
             }
         };
 
-        template <typename mapping_t>
-        using dispatch_type = typename mapping_t::dispatch_type;
-
         template <typename tag_t>
         struct index_impl
         {
@@ -69,11 +66,14 @@ namespace spore
         }
     }
 
+    template <typename mapping_t>
+    using proxy_dispatch_func = typename mapping_t::dispatch_type;
+
     template <std::size_t size_v = 16, std::float_t grow_v = 1.5f>
     struct [[maybe_unused]] proxy_dispatch_dynamic
     {
         template <typename mapping_t>
-        static inline thread_local std::vector<proxies::detail::dispatch_type<mapping_t>> dispatches {size_v};
+        static inline thread_local std::vector<proxy_dispatch_func<mapping_t>> dispatches {size_v};
 
         template <typename tag_t, typename func_t>
         SPORE_PROXY_FORCE_INLINE static void call_once(const func_t&)
@@ -87,22 +87,22 @@ namespace spore
         }
 
         template <typename mapping_t>
-        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static proxies::detail::dispatch_type<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
+        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static proxy_dispatch_func<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
         {
-            const std::vector<proxies::detail::dispatch_type<mapping_t>>& mapping_dispatchers = dispatches<mapping_t>;
+            const std::vector<proxy_dispatch_func<mapping_t>>& mapping_dispatches = dispatches<mapping_t>;
 
-            if (type_index < mapping_dispatchers.size()) [[likely]]
+            if (type_index < mapping_dispatches.size()) [[likely]]
             {
-                return mapping_dispatchers[type_index];
+                return mapping_dispatches[type_index];
             }
 
             return nullptr;
         }
 
         template <typename mapping_t>
-        SPORE_PROXY_FORCE_INLINE static void set_dispatch(const std::uint32_t type_index, const proxies::detail::dispatch_type<mapping_t> dispatcher) noexcept
+        SPORE_PROXY_FORCE_INLINE static void set_dispatch(const std::uint32_t type_index, const proxy_dispatch_func<mapping_t> dispatch) noexcept
         {
-            std::vector<proxies::detail::dispatch_type<mapping_t>>& mapping_dispatches = dispatches<mapping_t>;
+            std::vector<proxy_dispatch_func<mapping_t>>& mapping_dispatches = dispatches<mapping_t>;
 
             if (type_index >= mapping_dispatches.size()) [[unlikely]]
             {
@@ -110,7 +110,7 @@ namespace spore
                 mapping_dispatches.resize(new_size);
             }
 
-            std::construct_at(std::addressof(mapping_dispatches[type_index]), dispatcher);
+            mapping_dispatches[type_index] = dispatch;
         }
     };
 
@@ -118,7 +118,7 @@ namespace spore
     struct [[maybe_unused]] proxy_dispatch_static
     {
         template <typename mapping_t>
-        static inline proxies::detail::dispatch_type<mapping_t> dispatches[size_v] {};
+        static inline proxy_dispatch_func<mapping_t> dispatches[size_v] {};
 
         template <typename tag_t, typename func_t>
         SPORE_PROXY_FORCE_INLINE static void call_once(const func_t&)
@@ -132,19 +132,17 @@ namespace spore
         }
 
         template <typename mapping_t>
-        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static proxies::detail::dispatch_type<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
+        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static proxy_dispatch_func<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
         {
-            [[maybe_unused]] static const bool once = [] { std::atomic_thread_fence(std::memory_order_acquire); };
             SPORE_PROXY_ASSERT(type_index < size_v);
             return dispatches<mapping_t>[type_index];
         }
 
         template <typename mapping_t>
-        SPORE_PROXY_FORCE_INLINE static void set_dispatch(const std::uint32_t type_index, const proxies::detail::dispatch_type<mapping_t> dispatcher) noexcept
+        SPORE_PROXY_FORCE_INLINE static void set_dispatch(const std::uint32_t type_index, const proxy_dispatch_func<mapping_t> dispatch) noexcept
         {
             SPORE_PROXY_ASSERT(type_index < size_v);
-            std::construct_at(std::addressof(dispatches<mapping_t>[type_index]), dispatcher);
-            std::atomic_thread_fence(std::memory_order_release);
+            dispatches<mapping_t>[type_index] = dispatch;
         }
     };
 
