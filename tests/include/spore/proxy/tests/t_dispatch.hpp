@@ -36,14 +36,14 @@ namespace spore::proxies::tests
         }
 
         template <typename mapping_t>
-        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static constexpr proxies::detail::dispatch_type<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
+        [[nodiscard]] SPORE_PROXY_FORCE_INLINE static constexpr proxy_dispatch_func<mapping_t> get_dispatch(const std::uint32_t type_index) noexcept
         {
             get_called = true;
             return &dispatch_null<mapping_t>::dispatch;
         }
 
         template <typename mapping_t>
-        SPORE_PROXY_FORCE_INLINE static void set_dispatch(const std::uint32_t type_index, const proxies::detail::dispatch_type<mapping_t> dispatcher) noexcept
+        SPORE_PROXY_FORCE_INLINE static void set_dispatch(const std::uint32_t type_index, const proxy_dispatch_func<mapping_t> dispatcher) noexcept
         {
             set_called = true;
         }
